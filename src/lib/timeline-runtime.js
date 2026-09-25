@@ -136,7 +136,10 @@ function installTimeline(session,channel) {
   window.addEventListener('message',event=>{
     if(event.source!==parent)return;
     const data=event.data;
-    if(!data||data.channel!==channel||data.session!==session||data.kind!=='seek')return;
+    if(!data||data.channel!==channel||data.session!==session)return;
+    // The parent may miss an early READY message on extremely fast iframe loads.
+    if(data.kind==='hello'){if(ready)emit('ready',{epoch:EPOCH});return;}
+    if(data.kind!=='seek')return;
     const id=data.id;
     if(typeof id!=='string'||id.length>100)return;
     queue=queue.then(async()=>{
