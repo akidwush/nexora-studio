@@ -136,32 +136,69 @@ function installFrameCapture(){
       '" height="'+height+'" viewBox="0 0 '+width+' '+height+'">'+
       '<foreignObject width="100%" height="100%">'+xml+'</foreignObject></svg>';
   };
+  const visibleSceneExpected=(width,height)=>{
+    for(const node of document.body.querySelectorAll('*')){
+      const tag=node.localName?.toLowerCase();
+      if(['script','style','animate','set','defs'].includes(tag))continue;
+      const css=getComputedStyle(node);
+      if(css.display==='none'||css.visibility==='hidden'||Number(css.opacity)===0)continue;
+      const rect=node.getBoundingClientRect();
+      if(rect.width<2||rect.height<2||rect.right<=0||rect.bottom<=0||
+        rect.left>=width||rect.top>=height)continue;
+      const bg=css.backgroundColor;
+      const hasBackground=css.backgroundImage!=='none'||
+        (bg&&bg!=='transparent'&&bg!=='rgba(0, 0, 0, 0)');
+      const isImageOrShape=['img','canvas','svg','rect','circle','path'].includes(tag);
+      const hasVisibleText=['h1','h2','h3','p','span','strong','em','text'].includes(tag)&&
+        node.textContent.trim().length>0;
+      if(hasBackground||isImageOrShape||hasVisibleText)return true;
+    }
+    return false;
+  };
+  const sampleHasAlpha=(ctx,width,height)=>{
+    // Cheap ~1/8th-pixel coverage check catches foreignObject image decoding
+    // races where onload fired but Chrome produced an all-transparent canvas.
+    const rgba=ctx.getImageData(0,0,width,height).data;
+    for(let i=3;i<rgba.length;i+=4*8)if(rgba[i]>8)return true;
+    return false;
+  };
   const capture=async(width,height)=>{
     const svg=await svgDocument(width,height);
-    // On opaque-origin sandbox frames, SVG blob: foreignObject images taint
-    // Chrome canvas and toBlob throws SecurityError. A self-contained data:
-    // SVG source remains origin-clean (verified in Chromium).
-    const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-    const image=new Image();
-    try{
-      await new Promise((resolve,reject)=>{
-        image.onload=resolve;
-        image.onerror=()=>reject(new Error('Browser could not rasterize this HTML/SVG snapshot.'));
-        image.src=url;
-      });
-      const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
-      // Preserve genuine alpha in reference PNG. Opaque MP4 matting happens
-      // ONLY at a shared parent-side compositing step.
-      const ctx=canvas.getContext('2d',{alpha:true});
-      if(!ctx)throw new Error('Canvas snapshot rendering is unavailable.');
-      ctx.clearRect(0,0,width,height);
-      ctx.drawImage(image,0,0,width,height);
-      const blob=await new Promise((resolve,reject)=>
-        canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('PNG snapshot encoding failed.')),'image/png')
-      );
-      if(blob.size>6_000_000)throw new Error('Captured frame exceeds the transfer limit.');
-      return await blob.arrayBuffer();
-    }finally{image.src='';}
+    // Blob foreignObject images taint canvas inside opaque iframes.
+    // Data SVG stays origin-clean, but some Chromium versions occasionally
+    // return a blank raster before nested foreignObject paint completes.
+    const base='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    const expectsPaint=visibleSceneExpected(width,height);
+    let lastError;
+    for(let attempt=0;attempt<3;attempt++){
+      const image=new Image();
+      try{
+        const source=base+'#nexora-frame-attempt-'+attempt;
+        await new Promise((resolve,reject)=>{
+          image.onload=resolve;
+          image.onerror=()=>reject(new Error('Browser could not decode the isolated HTML/SVG snapshot.'));
+          image.src=source;
+        });
+        if(typeof image.decode==='function')await image.decode();
+        const canvas=document.createElement('canvas');
+        canvas.width=width;canvas.height=height;
+        const ctx=canvas.getContext('2d',{alpha:true,willReadFrequently:true});
+        if(!ctx)throw new Error('RGBA browser canvas is unavailable.');
+        ctx.clearRect(0,0,width,height);
+        ctx.drawImage(image,0,0,width,height);
+        if(expectsPaint&&!sampleHasAlpha(ctx,width,height))
+          throw new Error('Browser returned a blank frame for a visibly painted scene.');
+        const blob=await new Promise((resolve,reject)=>
+          canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('PNG snapshot encoding failed.')),'image/png')
+        );
+        if(blob.size>6_000_000)throw new Error('Captured frame exceeds the transfer limit.');
+        return await blob.arrayBuffer();
+      }catch(error){
+        lastError=error;
+        if(attempt<2)console.warn('Retrying unstable HTML/SVG raster:',error.message);
+      }finally{image.src='';}
+    }
+    throw lastError||new Error('HTML/SVG rasterization failed three times.');
   };
   Object.defineProperty(window,'__nexoraFrameCapture',{
     value:capture,configurable:false,writable:false,enumerable:false
