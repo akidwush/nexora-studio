@@ -44,7 +44,7 @@ function makeSrcdoc(session,width,height) {
       let initialized=false;
       let onFrame=null;
       const send=(kind,extra={},transfer=[])=>parent.postMessage({kind,session,...extra},'*',transfer);
-      const frame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const frame=()=>Promise.race([new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))),new Promise(resolve=>setTimeout(resolve,150))]);
       window.addEventListener('message',async event=>{
         if(event.source!==parent||!event.data||event.data.session!==session)return;
         const data=event.data;
