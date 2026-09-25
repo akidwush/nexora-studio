@@ -76,6 +76,15 @@ index="import {renderHtmlClip,drawHtmlClip,preRenderHtmlClips,clearCache,clearAl
   "import {showHtmlEditor,closeEditor,createHtmlClip,HTML_CLIP_TEMPLATES} from './editor.js';\n"+index;
 await writeFile(indexPath,index);
 
+// Reuse the first-party computed-style / SVG foreignObject capture already
+// covered by NEXORA's frame-fidelity Chromium regressions. Raise only the
+// pixel/PNG budgets for Studio Pro's HD timeline while retaining other guards.
+let capture=await readFile(resolve('src/lib/html-frame-capture.js'),'utf8');
+if(!capture.includes('width*height>1_000_000')||!capture.includes('blob.size>6_000_000'))
+  throw new Error('NEXORA secure capture engine changed; stop downstream build');
+capture=capture.replace('width*height>1_000_000','width*height>8_300_000')
+  .replace('blob.size>6_000_000','blob.size>32_000_000');
+await writeFile(resolve(vendor,'src/html-clips/nexora-frame-capture.js'),capture);
 await copyFile(resolve(patch,'isolated-frame.js'),resolve(vendor,'src/html-clips/isolated-frame.js'));
 await copyFile(resolve(patch,'html-canvas-renderer.js'),resolve(vendor,'src/html-in-canvas/renderer.js'));
 const htmlCanvas=await readFile(resolve(vendor,'src/html-in-canvas/renderer.js'),'utf8');
