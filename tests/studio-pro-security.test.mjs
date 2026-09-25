@@ -5,7 +5,7 @@ import {resolveStudioProUrl} from '../src/lib/studio-pro-url.js';
 
 test('Studio Pro link fails closed; no same-origin or downgrade fallback',()=>{
   const shell='https://studio.nexora.example';
-  for(const value of [undefined,'','/studio-pro/','https://studio.nexora.example/','http://editor.other.test/','https://editor.other.test/same-path','https://user:password@editor.other.test/','javascript:alert(1)']){
+  for(const value of [undefined,'','/studio-pro/','https://studio.nexora.example/','https://editor.nexora.example/','http://editor.other.test/','https://editor.other.test/same-path','https://user:password@editor.other.test/','javascript:alert(1)']){
     assert.equal(resolveStudioProUrl(value,shell),null,String(value));
   }
   assert.equal(resolveStudioProUrl('https://editor.separate.test/',shell),'https://editor.separate.test/');
