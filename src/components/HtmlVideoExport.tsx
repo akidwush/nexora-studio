@@ -109,7 +109,7 @@ export default function HtmlVideoExport({source}:Props){
       const blob=await encodeHtmlVideo({...source,...opts},{
         signal:task.signal,
         reference:{index:ref.index,png:ref.png},
-        onQuality:metric=>setQuality(metric),
+        onQuality:(metric:{meanError:number;severeFraction:number})=>setQuality(metric),
         onProgress:(value:number,frame:number,total:number)=>{
           setProgress(value);
           setMessage('Capturing '+frame+' / '+total+' frames · '+Math.round(value*100)+'%');
