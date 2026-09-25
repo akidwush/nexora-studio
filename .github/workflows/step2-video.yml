@@ -26,6 +26,8 @@ jobs:
         run: node scripts/verify-full-build.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium chrome
+      - name: Security regression - original Studio Pro HTML code on opaque origin
+        run: node tests/studio-pro-isolation.browser.mjs
       - name: Step 1 regression browser suite
         run: npm run test:browser
       - name: Step 2 actual MP4 encode/decode + mobile checks
@@ -46,6 +48,13 @@ jobs:
         with:
           name: nexora-studio-step2-static-preview
           path: dist/
+          retention-days: 7
+      - name: Upload distinct patched Studio Pro build (dedicated host only)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-pro-isolated-host-only
+          path: dist-studio-pro/
           retention-days: 7
       - name: Upload desktop and mobile QA screenshots
         if: always()

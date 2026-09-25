@@ -8,9 +8,10 @@
     "test": "node --test tests/*.test.mjs",
     "build": "tsc --noEmit && vite build",
     "studio:sync": "node scripts/sync-studio-pro.mjs",
-    "build:full": "npm run build && node scripts/build-upstream.mjs",
+    "build:full": "npm run build && npm run studio:build",
     "test:browser": "node tests/browser.smoke.mjs",
-    "test:ai-browser": "node tests/ai.browser.mjs"
+    "test:ai-browser": "node tests/ai.browser.mjs",
+    "studio:build": "node scripts/build-upstream.mjs"
   },
   "dependencies": {
     "react": "19.1.1",

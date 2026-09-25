@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { buildPreviewDoc } from './lib/preview.js';
+import { resolveStudioProUrl } from './lib/studio-pro-url.js';
 import HtmlSandbox from './components/HtmlSandbox';
 import HtmlVideoExport from './components/HtmlVideoExport';
 import type {TimelineUpdate} from './components/HtmlSandbox';
@@ -56,7 +57,7 @@ function App() {
   const [svg, setSvg] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [message, setMessage] = useState('Choose an image to generate vector mosaic artwork.');
-  const [studioReady, setStudioReady] = useState(false);
+  const studioUrl=resolveStudioProUrl(import.meta.env.VITE_STUDIO_PRO_URL,window.location.origin);
   const [mobilePreview, setMobilePreview] = useState(false);
 
   useEffect(()=>{
@@ -64,13 +65,6 @@ function App() {
     window.addEventListener('popstate',onPop);
     return()=>window.removeEventListener('popstate',onPop);
   },[]);
-
-  useEffect(() => {
-    fetch('/studio-pro/index.html', {cache: 'no-store'})
-      .then(r => r.ok ? r.text() : '')
-      .then(text => setStudioReady(text.includes('StudioPro') || text.includes('Studio Pro')))
-      .catch(() => setStudioReady(false));
-  }, []);
 
   useEffect(() => () => { if (imageUrl) URL.revokeObjectURL(imageUrl); }, [imageUrl]);
 
@@ -187,7 +181,7 @@ function App() {
         <article className="tool violet"><div className="tool-top"><span className="tool-icon">&lt;/&gt;</span><span>01</span></div><div><small>AVAILABLE NOW</small><h3>HTML Motion Lab</h3><p>Run HTML, CSS, SVG and JavaScript in an opaque-origin sandbox. Four motion presets included.</p></div><button onClick={() => navigate('motion')}>Open workspace <span>↗</span></button></article>
         <article className="tool blue"><div className="tool-top"><span className="tool-icon">▦</span><span>02</span></div><div><small>AVAILABLE NOW</small><h3>Image to Vector Mosaic</h3><p>Turn a local image into colorful SVG pixel-vector artwork without server uploads.</p></div><button onClick={() => navigate('image')}>Open workspace <span>↗</span></button></article>
         <article className="tool magenta"><div className="tool-top"><span className="tool-icon">◉</span><span>03</span></div><div><small>AVAILABLE NOW</small><h3>Canvas Motion Video</h3><p>Render real frame-accurate, silent MP4 videos directly in your browser. Three motion presets included.</p></div><button onClick={() => navigate('video')}>Open video renderer <span>↗</span></button></article>
-        <article className="tool amber"><div className="tool-top"><span className="tool-icon">▶</span><span>04</span></div><div><small>OPTIONAL MODULE</small><h3>Studio Pro Editor</h3><p>Multi-track timeline and video export in a separately built, license-preserving editor.</p></div>{studioReady?<a className="tool-link" href="/studio-pro/">Open workspace <span>↗</span></a>:<span className="disabled">Requires optional build</span>}</article>
+        <article className="tool amber"><div className="tool-top"><span className="tool-icon">▶</span><span>04</span></div><div><small>OPTIONAL MODULE</small><h3>Studio Pro Editor</h3><p>Multi-track timeline and video export, deployed on an independent HTTPS site. Never runs with dashboard login access.</p></div>{studioUrl?<a className="tool-link" href={studioUrl} target="_blank" rel="noopener noreferrer">Open isolated workspace <span>↗</span></a>:<span className="disabled">Unavailable: dedicated HTTPS origin not configured</span>}</article>
         <article className="tool emerald"><div className="tool-top"><span className="tool-icon">✦</span><span>05</span></div><div><small>LOCAL NOW · AI OPTIONAL</small><h3>AI Motion Generator</h3><p>Turn your ideas into editable motion storyboards. Local drafts work offline; server AI needs secure setup.</p></div><button onClick={() => navigate("ai")}>Open creative generator <span>↗</span></button></article>
       </div>
     </main>}

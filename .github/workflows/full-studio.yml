@@ -26,15 +26,23 @@ jobs:
         run: node scripts/verify-full-build.mjs
       - name: Install headless Chromium for integration smoke test
         run: npx playwright install --with-deps chromium
+      - name: Security regression - patched Studio Pro iframe and parent DOM/storage
+        run: node tests/studio-pro-isolation.browser.mjs
       - name: Browser smoke - shell, sandbox, SVG/PNG and Studio Pro assets
         run: npm run test:browser
-      - name: Upload tested preview build (no deployment)
+      - name: Upload tested dashboard ONLY preview (no deployment)
         uses: actions/upload-artifact@v4
         with:
           name: nexora-studio-step1-preview
           path: dist/
           retention-days: 7
           if-no-files-found: error
+      - name: Upload isolated editor build (deploy on distinct origin only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-pro-dedicated-site-build
+          path: dist-studio-pro/
+          retention-days: 7
       - name: Upload mobile and desktop smoke screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -35,3 +35,30 @@ Default development binds **only to 127.0.0.1**; Vite is pinned to patched 7.3.6
 
 ## Export-to-preview fidelity
 The HTML MP4 exporter now has an **export-accurate preview** computed by the same opaque-origin DOM snapshot routine used per frame during H.264 encoding. It supports explicitly chosen MP4 matte backgrounds, raw transparent PNG frame downloads, deterministic CSS/WAAPI/SVG/keyframe/JS clock replay, self-contained system typography and data-embedded `@font-face` rules. A selected preview frame is independently recaptured and compared with a tight bounded **RGBA visual-difference threshold** (including alpha) during export. After encoding, Chrome can decode and compare the selected video frame within a bounded tolerance for H.264 compression; if the parity check fails, no completed download is presented. Live interactive iframe at different viewport sizes is not guaranteed pixel-identical: use the export-matching preview for fidelity inspection.
+
+
+## Isolated Studio Pro build (required for public deployments)
+
+`npm run build` emits only the first-party dashboard into `dist/`. After
+`npm run studio:sync && npm run build:full`, the **patched** MPL-2.0
+Studio Pro editor is emitted separately into `dist-studio-pro/` with its
+LICENSE/NOTICE. Do NOT upload both folders to one origin, route
+`/studio-pro/` on the dashboard origin, or share authentication cookies.
+Deploy `dist-studio-pro/` as a distinct project on a **separate site**
+(prefer an entirely separate registrable domain rather than a same-site
+subdomain, and never give it NEXORA auth/API credentials). Disable
+cookie Domain sharing and cross-origin credentialed CORS. Configure
+`VITE_STUDIO_PRO_URL=https://your-dedicated-editor-site.example/` in the
+dashboard build to expose the external editor link; otherwise the UI fails
+closed with the editor unavailable. The link opens in a new tab with
+`noopener noreferrer`.
+
+The renderer hardening removes same-origin `document.write()`,
+`innerHTML` preview of *user input* on the privileged editor document,
+and parent-side `new Function` execution in the inspected HTML rendering
+modules; HTML/CSS/JS runs in opaque-origin `sandbox="allow-scripts"`
+iframes, returning untrusted PNG pixels via bounded messages. Remote
+project assets are not supported by this safe mode. A full review of
+every other upstream extension, import format and HTML sink is still
+required before public multi-user project import or privileged auth.
+Production hosting/DNS is NOT configured by these build changes.
