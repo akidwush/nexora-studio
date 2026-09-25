@@ -94,3 +94,10 @@ sandbox remain independent. There is no switch to enable public imports.
 Before production, see [pinned upstream audit and remaining release
 blockers](docs/STUDIO_PRO_SECURITY_AUDIT.md). We do not auto-deploy this
 quarantine PR.
+
+**Legacy project recovery:** if the isolated Studio Pro site's older localStorage
+contains an unsupported HTML/HIC project, the safety gate preserves the
+original project bytes and opens a new clean workspace instead of crashing.
+The existing Projects menu can still export the untouched old JSON for
+separate offline migration, but it must not be re-imported into the public
+editor while those code paths remain quarantined.
