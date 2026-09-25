@@ -36,7 +36,8 @@ export async function encodeHtmlVideo(options,{signal,onProgress,onFrame}={}){
   const canvas=document.createElement('canvas');canvas.width=plan.width;canvas.height=plan.height;
   const ctx=canvas.getContext('2d',{alpha:false});
   if(!ctx)throw new Error('Canvas encoder is not available.');
-  const output=new Output({format:new Mp4OutputFormat(),target:new BufferTarget()});
+  const target=new BufferTarget();
+  const output=new Output({format:new Mp4OutputFormat(),target});
   const track=new CanvasSource(canvas,{
     codec:'avc',bitrate:config.bitrate,latencyMode:'quality',keyFrameInterval:1
   });
@@ -122,7 +123,7 @@ export async function encodeHtmlVideo(options,{signal,onProgress,onFrame}={}){
     assertNotCancelled();
     await output.finalize();
     assertNotCancelled();
-    const buffer=output.target.buffer;
+    const buffer=target.buffer;
     if(!buffer||buffer.byteLength<256)
       throw new Error('MP4 output was incomplete.');
     return new Blob([buffer],{type:'video/mp4'});
