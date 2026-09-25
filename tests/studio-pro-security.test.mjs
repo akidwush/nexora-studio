@@ -28,3 +28,21 @@ test('upstream hardening must be part of separate build, not an opt-in bypass',a
   assert.doesNotMatch(patch,/allow-same-origin|contentDocument|contentWindow\.document/);
   assert.match(patch,/postMessage/);
 });
+
+
+test('all unreviewed monolithic project import and script routes are locked in mandatory build',async()=>{
+ const build=await readFile(new URL('../scripts/build-upstream.mjs',import.meta.url),'utf8');
+ const patch=await readFile(new URL('../scripts/harden-upstream-ingress.mjs',import.meta.url),'utf8');
+ const verify=await readFile(new URL('../scripts/verify-studio-public-ingress.mjs',import.meta.url),'utf8');
+ assert.match(build,/harden-upstream-ingress\\.mjs/);
+ assert.match(patch,/LOCKED_BLOB/);
+ for(const term of ['importProjectFileObj','importSpcomp','loadCompositionScript',
+  'importDesignTemplateFile','window.importPresets','window.openHicEditor',
+  'window.openHtmlEditor','window.__waapiSeekFrame',
+  'false && clip.type ==='])assert.ok(patch.includes(term),term);
+ assert.match(patch,/__nexoraAssertSafeProject/);
+ assert.match(patch,/__nexoraSafeMedia/);
+ assert.match(patch,/PWA service-worker/);
+ assert.match(verify,/publicUntrustedImportsAuthorized:false/);
+ assert.ok(!build.includes('NEXORA_PUBLIC_STUDIO_IMPORTS=true'));
+});
