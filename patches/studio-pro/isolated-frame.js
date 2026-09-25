@@ -29,12 +29,14 @@ function hasPngSignature(bytes,width,height) {
 }
 function makeSrcdoc(session,width,height) {
   const asset=new URL(html2canvasAsset,window.location.href);
+  // Permit only about: child frames: html2canvas clones inside its existing
+  // opaque-origin sandbox. External and blob subframes remain blocked.
   // The sandbox has an opaque origin even when its srcdoc references static
   // script assets on the editor origin. No credentialed network requests or
   // external HTML/CSS/media are required or allowed.
   const policy="default-src 'none'; script-src 'unsafe-inline' "+asset.origin+
     "; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'"+
-    "; frame-src 'none'; worker-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; media-src 'none'";
+    "; frame-src about:; worker-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; media-src 'none'";
   const runtime=`
     (() => {
       'use strict';
