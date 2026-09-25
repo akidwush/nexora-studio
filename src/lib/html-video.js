@@ -84,13 +84,13 @@ export async function encodeHtmlVideo(options,{
           png:await makeMattePreview(sample.png,plan.width,plan.height,plan.matte)
         });
         // Three independent decoded H.264 checks: first, middle, last.
-        measured=await verifyMp4Frames(stagedVideo,references,plan.width,plan.height,plan.fps);
+        measured=await verifyMp4Frames(stagedVideo,references,plan.width,plan.height,plan.fps,
+          result=>{measured.push(result);});
         if(signal?.aborted)throw new HtmlExportCancelled();
         stage='publish';
         // Only now touch the user's chosen file; stream with backpressure
         // from a verified temporary file instead of retaining MP4 in RAM.
-        const video=await sink.publish();
-        if(signal?.aborted)throw new HtmlExportCancelled();
+        const video=await sink.publish({signal});
         const quality={
           meanError:Math.max(...measured.map(s=>s.meanError)),
           severeFraction:Math.max(...measured.map(s=>s.severeFraction)),
