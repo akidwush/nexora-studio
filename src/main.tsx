@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { buildPreviewDoc } from './lib/preview.js';
 import { pixelGridToSvg } from './lib/vector.js';
+import { MOTION_PRESETS, getMotionPreset } from './lib/presets.js';
+import { svgToPngBlob } from './lib/export.js';
 import './styles.css';
 
 type Page = 'home' | 'motion' | 'image';
@@ -24,6 +26,7 @@ function App() {
   const [css, setCss] = useState(DEFAULT_CSS);
   const [js, setJs] = useState(DEFAULT_JS);
   const [codeTab, setCodeTab] = useState<CodeKind>('html');
+  const [presetId, setPresetId] = useState('custom');
   const [ratio, setRatio] = useState<Ratio>('16:9');
   const [preview, setPreview] = useState(() => buildPreviewDoc({html: DEFAULT_HTML, css: DEFAULT_CSS, js: DEFAULT_JS}));
   const [svg, setSvg] = useState('');
@@ -43,6 +46,25 @@ function App() {
 
   function navigate(next: Page) { setPage(next); setMobilePreview(false); window.scrollTo(0,0); }
   function runPreview() { setPreview(buildPreviewDoc({html,css,js})); setMobilePreview(true); }
+  function selectPreset(id: string) {
+    const preset = getMotionPreset(id);
+    if (!preset) { setPresetId('custom'); return; }
+    setPresetId(id);
+    setHtml(preset.html); setCss(preset.css); setJs(preset.js);
+    setPreview(buildPreviewDoc(preset));
+    setMobilePreview(true);
+  }
+  async function downloadPng() {
+    if (!svg) return;
+    try {
+      const blob = await svgToPngBlob(svg) as Blob;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href=url; a.download='nexora-mosaic.png'; a.click();
+      window.setTimeout(()=>URL.revokeObjectURL(url),2000);
+      setMessage('PNG downloaded. All processing stayed in your browser.');
+    } catch { setMessage('PNG render failed. SVG download is still available.'); }
+  }
   const code = codeTab === 'html' ? html : codeTab === 'css' ? css : js;
   const updateCode = codeTab === 'html' ? setHtml : codeTab === 'css' ? setCss : setJs;
 
@@ -96,7 +118,7 @@ function App() {
       </section>
       <div id="tools" className="section-title"><div><span className="eyebrow">DISCOVER THE WORKSPACE</span><h2>Tools made to create.</h2></div><span>01 — 04 / CREATIVE TOOLS</span></div>
       <div className="cards">
-        <article className="tool violet"><div className="tool-top"><span className="tool-icon">&lt;/&gt;</span><span>01</span></div><div><small>AVAILABLE NOW</small><h3>HTML Motion Lab</h3><p>Write HTML, CSS and JavaScript. Preview an animated scene safely and download your code.</p></div><button onClick={() => navigate('motion')}>Open workspace <span>↗</span></button></article>
+        <article className="tool violet"><div className="tool-top"><span className="tool-icon">&lt;/&gt;</span><span>01</span></div><div><small>AVAILABLE NOW</small><h3>HTML Motion Lab</h3><p>Write HTML, CSS and JavaScript. Start from four motion presets or create your own animation.</p></div><button onClick={() => navigate('motion')}>Open workspace <span>↗</span></button></article>
         <article className="tool blue"><div className="tool-top"><span className="tool-icon">▦</span><span>02</span></div><div><small>AVAILABLE NOW</small><h3>Image to Vector Mosaic</h3><p>Turn a local image into colorful SVG pixel-vector artwork without server uploads.</p></div><button onClick={() => navigate('image')}>Open workspace <span>↗</span></button></article>
         <article className="tool amber"><div className="tool-top"><span className="tool-icon">▶</span><span>03</span></div><div><small>OPTIONAL MODULE</small><h3>Studio Pro Editor</h3><p>Multi-track timeline and video export in a separately built, license-preserving editor.</p></div>{studioReady?<a className="tool-link" href="/studio-pro/">Open workspace <span>↗</span></a>:<span className="disabled">Requires optional build</span>}</article>
         <article className="tool emerald"><div className="tool-top"><span className="tool-icon">✦</span><span>04</span></div><div><small>ROADMAP</small><h3>AI Motion Generator</h3><p>Prompt-to-animation with a future secure API integration and server-side access controls.</p></div><span className="disabled">Coming later</span></article>
@@ -108,8 +130,9 @@ function App() {
       <div className="editor">
         <section className={'panel code-panel'+(mobilePreview?' mobile-hidden':'')}>
           <div className="panel-head"><b>CODE EDITOR</b><span>ISOLATED</span></div>
+          <div className="preset-bar"><label htmlFor="motion-preset">MOTION PRESET</label><select id="motion-preset" value={presetId} onChange={e=>selectPreset(e.target.value)}><option value="custom">Custom code</option>{MOTION_PRESETS.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></div>
           <div className="tabs">{(['html','css','js'] as CodeKind[]).map(t=><button key={t} className={codeTab===t?'active':''} onClick={() => setCodeTab(t)}>{t.toUpperCase()}</button>)}</div>
-          <textarea spellCheck={false} value={code} onChange={e => updateCode(e.target.value)} aria-label={codeTab.toUpperCase()+' code editor'}/>
+          <textarea spellCheck={false} value={code} onChange={e => {updateCode(e.target.value);setPresetId('custom');}} aria-label={codeTab.toUpperCase()+' code editor'}/>
           <p className="panel-note">Press Run preview to apply changes. Scripts cannot access the parent page.</p>
         </section>
         <section className={'panel preview-panel'+(!mobilePreview?' preview-mobile-hidden':'')}>
@@ -121,7 +144,7 @@ function App() {
     </main>}
 
     {page==='image' && <main className="container workspace">
-      <div className="workspace-title"><div><button className="back" onClick={() => navigate('home')}>← All tools</button><h1>Image to Vector Mosaic</h1><p>Offline sampled SVG conversion. True contour tracing is planned separately.</p></div>{svg && <button className="primary" onClick={() => download('nexora-mosaic.svg',svg,'image/svg+xml')}>↓ Download SVG</button>}</div>
+      <div className="workspace-title"><div><button className="back" onClick={() => navigate('home')}>← All tools</button><h1>Image to Vector Mosaic</h1><p>Offline sampled SVG conversion. True contour tracing is planned separately.</p></div>{svg && <div className="buttons"><button className="secondary" onClick={() => download('nexora-mosaic.svg',svg,'image/svg+xml')}>↓ Download SVG</button><button className="primary" onClick={() => void downloadPng()}>↓ Download PNG</button></div>}</div>
       <div className="editor">
         <section className="panel upload-panel"><div className="panel-head"><b>SOURCE IMAGE</b><span>LOCAL ONLY</span></div><label className="upload"><span>↑</span><b>Select an image</b><small>PNG · JPEG · WEBP / MAX 15 MB</small><input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void makeMosaic(e.target.files?.[0])}/></label>{imageUrl && <img className="original" src={imageUrl} alt="Source uploaded from your device"/>}<p className="panel-note">{message}</p></section>
         <section className="panel"><div className="panel-head"><b>VECTOR OUTPUT</b><span>SVG</span></div><div className="result">{svg?<img src={'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)} alt="Vector mosaic preview"/>:<div className="placeholder">▦<p>Your vector artwork will appear here.</p></div>}</div><p className="panel-note">Each pixel sample becomes an editable SVG rectangle. This is not an AI reconstruction.</p></section>

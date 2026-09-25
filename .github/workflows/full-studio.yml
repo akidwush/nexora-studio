@@ -1,0 +1,33 @@
+name: Step 1 - Build integrated editor
+on:
+  workflow_dispatch:
+  push:
+    branches: [studio-step1-editor]
+permissions:
+  contents: read
+jobs:
+  integrated-editor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install NEXORA shell
+        run: npm install --no-audit --no-fund
+      - name: Verify source unit tests
+        run: npm test
+      - name: Fetch pinned MPL-2.0 upstream source
+        run: npm run studio:sync
+      - name: Build shell and complete Studio Pro editor
+        run: npm run build:full
+      - name: Verify asset base and license distribution
+        run: node scripts/verify-full-build.mjs
+      - name: Upload separately tested preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexora-studio-step1-preview
+          path: dist/
+          retention-days: 7
+          if-no-files-found: error
