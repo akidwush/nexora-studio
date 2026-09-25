@@ -152,6 +152,62 @@ once('HTML runtime drawing gated',"} else if (clip.type === 'html') {","} else i
 once('HIC runtime drawing gated',"} else if (clip.type === 'hic') {","} else if (false && clip.type === 'hic') {");
 once('WAAPI overlay never invokes old iframe pipeline','if (!c._isWaaapi) return;','if (true || !c._isWaaapi) return; // quarantined until message-only sandbox rendering');
 once('persistent-local-project-validation',"function applyProject(data) {","function applyProject(data) {\n            __nexoraAssertSafeProject(data);");
+
+once('project registry id validation',
+ "if (idx && Array.isArray(idx.projects)) return idx.projects;",
+ "if (idx && Array.isArray(idx.projects)) return idx.projects.filter(p => p && typeof p.id==='string' && /^(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|p[a-z0-9]{5,42})$/i.test(p.id) && typeof p.name==='string' && p.name.length<=120).slice(0,100);");
+once('active project id validation',
+ "if (a && a.id) return a;",
+ "if (a && typeof a.id==='string' && /^(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|p[a-z0-9]{5,42})$/i.test(a.id)) return a;");
+const legacyStart='        function initProjects() {\n';
+const legacyEnd='            syncSideStoresFromState();';
+const legacyStartAt=html.indexOf(legacyStart);
+const legacyEndAt=html.indexOf(legacyEnd,legacyStartAt);
+if(legacyStartAt<0||legacyEndAt<legacyStartAt||!html.slice(legacyStartAt,legacyEndAt).includes('applyProject(getProject(active.id))'))
+  throw new Error('Upstream initProjects lifecycle anchor changed; old projects must not be silently overwritten');
+const replacement=`        function initProjects() {
+            migrateLegacyAutosave();
+            const projects = listProjects();
+            const active = getActiveProject();
+            const preferred = active && projects.some(p=>p.id===active.id) && getProject(active.id)
+              ? {id:active.id,name:active.name||'Untitled',data:getProject(active.id)}
+              : null;
+            const firstValid = projects.map(p=>({id:p.id,name:p.name,data:getProject(p.id)}))
+              .find(p=>p.data);
+            const selected=preferred||firstValid;
+            if(selected) {
+              try {
+                // Validate BEFORE selecting, mutating current state, or running
+                // any rich template/clip rendering. No quarantine bypass for
+                // old autosaves or manually edited localStorage records.
+                __nexoraAssertSafeProject(selected.data);
+                setActiveProject(selected.id,selected.name);
+                applyProject(selected.data);
+              }catch(err) {
+                console.warn('[NEXORA] Prior local project preserved but quarantined:',err.message);
+                const id=newProjectId(),name='Safe workspace';
+                const blank=createEmptyProject();
+                saveProject(id,blank,name); // Original project bytes remain untouched
+                setActiveProject(id,name);
+                applyProject(blank);
+                setTimeout(()=>{
+                  try{showNoticeModal({
+                    title:'Existing project quarantined',tone:'error',
+                    message:'The previous project contains unsafe or unsupported content. It was NOT deleted. Export it from the Projects menu for offline migration. Studio Pro opened a safe new workspace.',
+                    confirmLabel:'OK'
+                  });}catch{}
+                },0);
+              }
+            }else {
+              const id=newProjectId(),name=defaultProjectName(),blank=createEmptyProject();
+              saveProject(id,blank,name);
+              setActiveProject(id,name);
+              applyProject(blank);
+            }
+`;
+html=html.slice(0,legacyStartAt)+replacement+html.slice(legacyEndAt);
+changes.push('safe local-project startup recovery without deleting old project');
+
 // Replace remaining privileged script compilers even within unreachable
 // branches, so a future refactor cannot quietly re-enable them.
 once('HIC parent compiler',"try { _hr._onFrame = new Function('time', clip.js + '\\n;return typeof onFrame === \"function\" ? onFrame : null;')(); }","try { throw new Error('HIC parent compiler disabled by NEXORA'); }");
