@@ -34,12 +34,16 @@ function installFrameCapture(){
         copy.setAttribute(prop,String(animated.animVal.value));
       }
     }
-    if(original.transform?.animVal?.consolidate){
-      const consolidated=original.transform.animVal.consolidate();
-      if(consolidated){
-        const m=consolidated.matrix;
-        copy.setAttribute('transform','matrix('+[m.a,m.b,m.c,m.d,m.e,m.f].join(' ')+')');
+    // SVGAnimatedTransformList.animVal is read-only; calling consolidate()
+    // mutates it and throws in Chrome. Compose its items non-destructively.
+    const transforms=original.transform?.animVal;
+    if(transforms&&transforms.numberOfItems>0){
+      let matrix=new DOMMatrix();
+      for(let i=0;i<transforms.numberOfItems;i++){
+        const item=transforms.getItem(i).matrix;
+        matrix=matrix.multiply(new DOMMatrix([item.a,item.b,item.c,item.d,item.e,item.f]));
       }
+      copy.setAttribute('transform','matrix('+[matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f].join(' ')+')');
     }
   };
   const pseudoRules=[];
