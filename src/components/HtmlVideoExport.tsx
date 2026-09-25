@@ -131,10 +131,11 @@ export default function HtmlVideoExport({source}:Props){
         onReport:(item:Report)=>{receivedReport=true;setReport(item);},
         onProgress:(value:number,frame:number,total:number)=>{
           setProgress(value);
-          setMessage('Capturing '+frame+' / '+total+' frames · '+Math.round(value*100)+'%');
+          setMessage(frame===total?'Captures complete · verifying all 3 encoded video frames…':
+            'Capturing '+frame+' / '+total+' frames · '+Math.round(value*100)+'%');
         }
       });
-      if(task.signal.aborted)return;
+      if(task.signal.aborted&&!fileHandle)return;
       const url=URL.createObjectURL(blob);videoRef.current=url;setVideoUrl(url);
       setMessage(fileHandle?
         'Streaming save complete: first, middle and last frames verified before file commit.':
