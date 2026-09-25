@@ -144,12 +144,19 @@ try{
   await page.screenshot({path:join('artifacts','html-motion-to-mp4-desktop.png'),fullPage:true,animations:'disabled'});
   for(const width of [360,390,412]){
     await page.setViewportSize({width,height:844});
+    // Mobile starts on the code panel. Explicitly show the preview panel to
+    // verify the new exporter UI, not just the hidden DOM's scroll width.
+    await page.locator('.mobile-toggle button').last().click();
+    await page.locator('#html-video-size').waitFor({state:'visible'});
     const over=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
     assert.ok(over<=1,'HTML exporter overflows mobile '+width+': '+over);
     await page.screenshot({path:join('artifacts','html-motion-to-mp4-mobile-'+width+'.png'),fullPage:true,animations:'disabled'});
   }
-  console.log('PASS: HTML-to-MP4 controls fit 360/390/412px layouts');
-  await page.selectOption('#html-video-fps','30');
+  console.log('PASS: HTML-to-MP4 exporter is visible and fits 360/390/412px layouts');
+  await page.setViewportSize({width:1440,height:900});
+  await page.selectOption('#html-video-size','compact');
+  await page.selectOption('#html-video-fps','60');
+  await page.selectOption('#html-video-duration','3');
   await page.getByRole('button',{name:/Render MP4/}).click();
   await page.getByRole('button',{name:'Cancel',exact:true}).click();
   await page.getByRole('status').filter({hasText:/cancelled/i}).waitFor({timeout:25000});
