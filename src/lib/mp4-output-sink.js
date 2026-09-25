@@ -10,7 +10,7 @@ export function criticalFrameIndices(frames){
   if(!Number.isInteger(frames)||frames<1)throw new RangeError('Invalid video frame count.');
   return [...new Set([0,Math.floor(frames/2),frames-1])].sort((a,b)=>a-b);
 }
-export async function createMp4Sink({fileHandle,BufferTarget,StreamTarget}){
+export async function createMp4Sink({fileHandle,BufferTarget,StreamTarget,scope=globalThis}){
   if(!fileHandle){
     const target=new BufferTarget();
     return {
@@ -20,11 +20,11 @@ export async function createMp4Sink({fileHandle,BufferTarget,StreamTarget}){
       async cleanup(){}
     };
   }
-  if(!supportsStreamingSave())throw Error('Secure browser streaming storage is unavailable.');
+  if(!supportsStreamingSave(scope))throw Error('Secure browser streaming storage is unavailable.');
   if(typeof fileHandle.createWritable!=='function'||typeof fileHandle.getFile!=='function')
     throw Error('Invalid file save destination.');
-  const root=await navigator.storage.getDirectory();
-  const name='nexora-temporary-export-'+crypto.randomUUID()+'.mp4';
+  const root=await scope.navigator.storage.getDirectory();
+  const name='nexora-temporary-export-'+scope.crypto.randomUUID()+'.mp4';
   const staged=await root.getFileHandle(name,{create:true});
   let writer;
   try{writer=await staged.createWritable();}
@@ -56,4 +56,15 @@ export async function createMp4Sink({fileHandle,BufferTarget,StreamTarget}){
     },
     cleanup
   };
+}
+
+// Invoke this as the first action of an actual Save button click, before
+// awaiting dynamic imports/preview generation (browser user activation).
+export function beginMp4FilePick(filename){
+  if(!supportsStreamingSave())throw Error('Browser cannot stream to a local file on this page.');
+  return globalThis.showSaveFilePicker({
+    suggestedName:filename,
+    types:[{description:'MP4 video',accept:{'video/mp4':['.mp4']}}],
+    excludeAcceptAllOption:true
+  });
 }
