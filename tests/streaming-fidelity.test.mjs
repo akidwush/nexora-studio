@@ -85,8 +85,8 @@ test('reproducible reports are local and omit sensitive source by default',()=>{
 
 test('sandbox capture checks custom font readiness and failed embedded images',()=>{
   const runtime=captureBootstrap();
-  assert.match(runtime,/document\\.fonts/);
-  assert.match(runtime,/img\\.decode/);
+  assert.ok(runtime.includes('document.fonts'));
+  assert.ok(runtime.includes('img.decode()'));
   assert.match(runtime,/SVG image failed to decode/);
   assert.doesNotMatch(runtime,/allow-same-origin/);
 });
