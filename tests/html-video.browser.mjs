@@ -59,7 +59,7 @@ async function exportMp4(page,fps){
           console.log('HTML capture state:',message);
           previous=message;
         }
-        if(/(?:failed|unavailable|unsupported|could not|timed out|cannot|exceeds|invalid|cancelled|error)/i.test(message)
+        if(/(?:failed|unavailable|unsupported|could not|timed out|cannot|exceeds|invalid|cancelled|mismatch|differ|error)/i.test(message)
             && !message.includes('Checking browser encoder')){
           throw new Error('HTML capture UI failed: '+message);
         }
