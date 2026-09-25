@@ -74,6 +74,9 @@ function installFrameCapture(){
     new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' timed out.')),6000))
   ]);
   const validateResources=async()=>{
+    // Reject remote fonts before FontFace.load so CSP failures are not
+    // mislabeled as corrupt embedded font bytes.
+    inlineFontRules();
     if(document.fonts){
       const faces=[...document.fonts];
       try{
