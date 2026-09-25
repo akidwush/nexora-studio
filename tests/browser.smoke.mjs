@@ -32,7 +32,7 @@ try{
   assert.equal(await page.locator('.tool').count(),4,'four standalone tools');
   await capture(page,'landing-desktop.png');
 
-  await page.getByRole('button',{name:'Motion Lab'}).click();
+  await page.getByRole('button',{name:'Motion Lab',exact:true}).click();
   await page.locator('select#motion-preset').selectOption('neon');
   await page.frameLocator('iframe[title="Sandboxed code preview"]').locator('.neon-scene h1').waitFor();
   const neon=await page.frameLocator('iframe[title="Sandboxed code preview"]').locator('h1').innerText();
