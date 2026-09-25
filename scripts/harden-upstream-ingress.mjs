@@ -173,7 +173,7 @@ export default defineConfig({
   build:{outDir:'dist',rollupOptions:{input:{main:'./index.html'}}}
 });
 `);
-if(/new Function\\s*\\(/.test(html)||/onload=[\"'][^\\n]*https:\/\//i.test(html))
+if(html.includes('new Function(')||html.includes('eval(')||html.includes('src="https://unpkg.com/'))
   throw new Error('Privileged dynamic compilation or remote script hook remains in public editor');
 await writeFile(htmlPath,html);
 console.log('PASS: audited pinned upstream main editor import/dynamic-code/PWA gates '+changes.length);
