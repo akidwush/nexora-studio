@@ -34,7 +34,7 @@ test('all unreviewed monolithic project import and script routes are locked in m
  const build=await readFile(new URL('../scripts/build-upstream.mjs',import.meta.url),'utf8');
  const patch=await readFile(new URL('../scripts/harden-upstream-ingress.mjs',import.meta.url),'utf8');
  const verify=await readFile(new URL('../scripts/verify-studio-public-ingress.mjs',import.meta.url),'utf8');
- assert.match(build,/harden-upstream-ingress\\.mjs/);
+ assert.ok(build.includes('harden-upstream-ingress.mjs'));
  assert.match(patch,/LOCKED_BLOB/);
  for(const term of ['importProjectFileObj','importSpcomp','loadCompositionScript',
   'importDesignTemplateFile','window.importPresets','window.openHicEditor',
