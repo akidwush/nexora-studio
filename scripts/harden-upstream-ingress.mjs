@@ -251,21 +251,21 @@ once('audio library import allowlist',
 // storage from older unsafe builds; never parse them into live rich HTML.
 once('legacy custom preset recovery quarantine',
  "function loadCustomPresets() {",
- "function loadCustomPresets() {\\n            return []; // old stored presets retained but quarantined until typed schema review");
+ "function loadCustomPresets() {\n            return []; // old stored presets retained but quarantined until typed schema review");
 once('legacy custom preset save quarantine',
  "function saveCustomPresets(presets) {",
- "function saveCustomPresets(presets) {\\n            return __nexoraDisabled('Unreviewed custom preset storage');");
+ "function saveCustomPresets(presets) {\n            return __nexoraDisabled('Unreviewed custom preset storage');");
 once('legacy design template recovery quarantine',
  "function loadDesignTemplates() {",
- "function loadDesignTemplates() {\\n            return []; // old stored templates retained but not evaluated");
+ "function loadDesignTemplates() {\n            return []; // old stored templates retained but not evaluated");
 once('legacy design template save quarantine',
  "function saveDesignTemplates(list) {",
- "function saveDesignTemplates(list) {\\n            return __nexoraDisabled('Unreviewed template storage');");
+ "function saveDesignTemplates(list) {\n            return __nexoraDisabled('Unreviewed template storage');");
 // Imported fonts are treated as data but their old names and data URIs
 // entered a privileged editor-owned <style> without adequate validation.
 once('font CSS injection guard',
  "function registerCustomFont(name, dataUri) {",
- "function registerCustomFont(name, dataUri) {\\n            if(!__nexoraSafeFontRecord({name,dataUri}))return false;");
+ "function registerCustomFont(name, dataUri) {\n            if(!__nexoraSafeFontRecord({name,dataUri}))return false;");
 once('stored custom font allowlist',
  "fonts = fonts.filter(f => f && f.name && !f.name.startsWith('._'));",
  "fonts = fonts.filter(f => f && __nexoraSafeFontRecord(f) && !f.name.startsWith('._'));");
@@ -277,7 +277,7 @@ once('async font upload validation',
  "fontInput.addEventListener('change', async (e) => {");
 once('font picker signature and name check',
  "if (file.size > 2.5 * 1024 * 1024) {",
- "if(!(await __nexoraInspectMedia(file,'font')) || !/^[a-z0-9 ._-]{1,55}\\.(?:woff2?|ttf|otf)$/i.test(file.name)){\\n                __nexoraDisabled('Font type, signature or filename rejected');fontInput.value='';return;\\n            }\\n            if (file.size > 2.5 * 1024 * 1024) {");
+ "if(!(await __nexoraInspectMedia(file,'font')) || !/^[a-z0-9 ._-]{1,55}\\.(?:woff2?|ttf|otf)$/i.test(file.name)){\n                __nexoraDisabled('Font type, signature or filename rejected');fontInput.value='';return;\n            }\n            if (file.size > 2.5 * 1024 * 1024) {");
 once('audio library import files mutable',
  "const entries = [...(files || [])].map(f => {",
  "let entries = [...(files || [])].map(f => {");
