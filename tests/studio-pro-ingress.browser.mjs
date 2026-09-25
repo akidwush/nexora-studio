@@ -70,6 +70,13 @@ try{
         new File(['<svg onload="alert(1)"/>'],'forged.mp4',{type:'video/mp4'}),'video'),
       validWebmMagic:await window.__nexoraInspectMedia(
         new File([new Uint8Array([26,69,223,163,0,0,0,0])],'movie.webm',{type:'video/webm'}),'video'),
+      forgedFontDenied:await window.__nexoraInspectMedia(
+        new File(['<script>alert(1)</script>'],'fake.woff2',{type:'font/woff2'}),'font'),
+      validWoffMagic:await window.__nexoraInspectMedia(
+        new File(['wOF2'+String.fromCharCode(0,0,0,0)],'font.woff2',{type:'font/woff2'}),'font'),
+      maliciousStoredFontDenied:window.__nexoraSafeFontRecord({
+        name:'evil-font-payload";}body{display:none}',dataUri:'data:font/woff2;base64,d09GMgAAAAA='
+      }),
       presetStorage:localStorage.getItem('custom_presets'),
       projectKeys:Object.keys(localStorage).filter(key=>key.startsWith('studiopro_project_')),
       oldProjects,executed:window.__evilProjectExecuted,
@@ -94,6 +101,9 @@ try{
   assert.equal(results.forgedPngDenied,false,'A forged SVG cannot be imported as a PNG');
   assert.equal(results.forgedMp4Denied,false,'Media magic bytes must precede decode');
   assert.equal(results.validWebmMagic,true,'Known WebM header should be accepted for further decode');
+  assert.equal(results.forgedFontDenied,false,'Font MIME must not bypass byte signature validation');
+  assert.equal(results.validWoffMagic,true);
+  assert.equal(results.maliciousStoredFontDenied,false,'Stored CSS font name injection rejected');
   assert.equal(results.emptyLocalProjectAllowed,true);
   assert.equal(results.executed,false);
   assert.deepEqual(results.projectKeys,results.oldProjects,'Untrusted import must not persist a new project');
@@ -138,6 +148,11 @@ try{
         {id:"bad'id",name:'Malicious forged ID',savedAt:1,duration:60}]}));
     localStorage.setItem('studiopro_project_'+id,JSON.stringify(project));
     localStorage.setItem('studiopro_active_project',JSON.stringify({id,name:'Unreviewed legacy project'}));
+    // These legacy attacker-controlled JSON/font stores were previously
+    // deserialized directly into editor HTML and @font-face rules.
+    localStorage.setItem('custom_presets',JSON.stringify([{id:'x',name:'<img src=x onerror=parent.__legacyExec=true>',type:'text',effects:{}}]));
+    localStorage.setItem('studioPro_designTemplates',JSON.stringify([{id:'x',name:'<img src=x onerror=parent.__legacyExec=true>'}]));
+    localStorage.setItem('studiopro_custom_fonts',JSON.stringify([{name:'evil-font-payload";}body{display:none}',dataUri:'data:font/woff2;base64,d09GMgAAAAA='}]));
     window.__legacyExec=false;
   });
   await legacyPage.goto(host+'/',{waitUntil:'domcontentloaded'});
@@ -156,11 +171,19 @@ try{
     return {oldPreserved:old?.clips?.[0]?.type==='html',
       safeActive:active.id!==id&&saved?.clips?.length===0,
       legacyExecuted:window.__legacyExec,registered:index.projects.map(p=>p.id),
-      safeName:active.name};
+      safeName:active.name,
+      oldStoresStillPresent:['custom_presets','studioPro_designTemplates','studiopro_custom_fonts'].every(key=>!!localStorage.getItem(key)),
+      presetsQuarantined:window.loadCustomPresets?.().length===0,
+      templatesQuarantined:window.loadDesignTemplates?.().length===0,
+      importedFontCssInjected:document.head.textContent?.includes('evil-font-payload')||false};
   });
   assert.equal(legacy.oldPreserved,true,'Blocked historical project bytes must not be erased');
   assert.equal(legacy.safeActive,true,'A clean workspace should open when old project is unsafe');
   assert.equal(legacy.legacyExecuted,false,'Startup must never execute untrusted legacy HTML');
+  assert.equal(legacy.oldStoresStillPresent,true,'Old user content must not be silently erased');
+  assert.equal(legacy.presetsQuarantined,true,'Old custom preset JSON must not reach HTML sinks');
+  assert.equal(legacy.templatesQuarantined,true,'Old template JSON must not reach HTML sinks');
+  assert.equal(legacy.importedFontCssInjected,false,'Unsafe restored font names cannot poison privileged editor CSS');
   assert.ok(legacy.registered.includes('00000000-0000-4000-8000-000000000001'));
   assert.equal(legacy.registered.some(id=>id.includes("'")),false,
     'Malformed registry ID cannot flow into onclick HTML attributes');
