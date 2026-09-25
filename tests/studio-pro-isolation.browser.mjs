@@ -6,7 +6,7 @@ import {spawn} from 'node:child_process';
 
 const base='http://127.0.0.1:4175';
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','4175','--strictPort'],{
-  cwd:'vendor/studio-pro',stdio:['ignore','pipe','pipe']
+  cwd:'vendor/studio-pro',stdio:['ignore','pipe','pipe'],env:{...process.env,GITHUB_ACTIONS:'false'}
 });
 let output='';
 server.stdout.on('data',d=>{output+=String(d)});
