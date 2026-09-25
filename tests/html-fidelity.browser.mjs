@@ -96,6 +96,27 @@ try{
   assert.ok(alpha.svg[2]>120&&alpha.svg[3]>200,'inline SVG must render in PNG');
   assert.ok(alpha.textPixels>450,'system font typography must be present in export snapshot');
   console.log('PASS: alpha PNG preserves transparency, keyframe transforms, SVG and typography',JSON.stringify(alpha));
+
+  // Multiple independent sandbox sessions must not silently return blank
+  // foreignObject rasters or different keyframe position at the same timestamp.
+  for(let attempt=0;attempt<2;attempt++){
+    const oldSrc=await page.locator('.html-video-reference').getAttribute('src');
+    await page.getByRole('button',{name:/Match export preview/}).click();
+    await page.waitForFunction(previous=>{
+      const img=document.querySelector('.html-video-reference');
+      return img?.getAttribute('src')!==previous && img?.complete && img?.naturalWidth===640;
+    },oldSrc,{timeout:20000});
+    const pixels=await page.locator('.html-video-reference').evaluate(img=>{
+      const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0);
+      return {background:[...ctx.getImageData(625,320,1,1).data],
+        moved:[...ctx.getImageData(205,70,1,1).data]};
+    });
+    assert.equal(pixels.background[3],0,'Repeated alpha capture must retain transparency.');
+    assert.ok(pixels.moved[0]>155&&pixels.moved[3]>190,
+      'Repeated capture must show the same transform/keyframe.');
+  }
+  console.log('PASS: three independent matching-preview captures retain RGBA content and keyframe position');
   await mkdir('artifacts',{recursive:true});
   const rawDownload=page.waitForEvent('download');
   await page.getByRole('link',{name:/Download lossless transparent PNG frame/}).click();
