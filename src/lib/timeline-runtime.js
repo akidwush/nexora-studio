@@ -25,8 +25,8 @@ function installTimeline(session,channel) {
   let now=0,lastFrame=-1,rate=null,ready=false,queue=Promise.resolve();
   let sequence=1,seed=0x1e0f5a7d;
   const scheduled=new Map(),raf=new Map(),animationBirth=new WeakMap();
-  const emit=(kind,extra={})=>{
-    try{parent.postMessage(Object.assign({channel,session,kind},extra),'*');}catch{}
+  const emit=(kind,extra={},transfer=[])=>{
+    try{parent.postMessage(Object.assign({channel,session,kind},extra),'*',transfer);}catch{}
   };
   const safeInvoke=(callback,args)=>{
     try {if(typeof callback==='function')callback(...args);}
@@ -111,7 +111,7 @@ function installTimeline(session,channel) {
     }
   };
   const nextNativePaint=()=>new Promise(resolve=>nativeRAF(()=>nativeRAF(resolve)));
-  const execute=async(frame,fps)=>{
+  const execute=async(frame,fps,capture)=>{
     if(!ready)throw new Error('Sandbox timeline is not ready.');
     if(![12,24,30,60].includes(fps)||!Number.isInteger(frame)||frame<0||frame>=720)
       throw new Error('Frame index or FPS is outside supported limits.');
@@ -127,11 +127,21 @@ function installTimeline(session,channel) {
     for(const callback of callbacks)safeInvoke(callback,[now]);
     await Promise.resolve();
     freezeAnimations(now);
-    // Acknowledge only after browser had a chance to apply paused animation times
-    // and paint the requested frame, never immediately after changing currentTime.
+    if(capture){
+      // The export iframe may be offscreen and compositor RAF throttled.
+      // Serialize the exact paused computed DOM after a native event-loop turn.
+      await new Promise(resolve=>nativeSetTimeout(resolve,0));
+      const renderer=window.__nexoraFrameCapture;
+      if(typeof renderer!=='function')throw new Error('HTML snapshot renderer was not installed.');
+      const bytes=await renderer(capture.width,capture.height);
+      lastFrame=frame;
+      return {ms:target,bytes};
+    }
+    // Interactive preview retains a post-paint acknowledgement.
     await nextNativePaint();
     lastFrame=frame;
-    return target;
+    return {ms:target};
+
   };
   window.addEventListener('message',event=>{
     if(event.source!==parent)return;
@@ -144,8 +154,14 @@ function installTimeline(session,channel) {
     if(typeof id!=='string'||id.length>100)return;
     queue=queue.then(async()=>{
       try{
-        const ms=await execute(data.frame,data.fps);
-        emit('frame',{id,frame:data.frame,fps:data.fps,ms});
+        const capturing=data.capture===true;
+        const result=await execute(data.frame,data.fps,
+          capturing?{width:data.width,height:data.height}:null);
+        if(capturing){
+          emit('captured',{id,frame:data.frame,fps:data.fps,ms:result.ms,bytes:result.bytes},[result.bytes]);
+        }else{
+          emit('frame',{id,frame:data.frame,fps:data.fps,ms:result.ms});
+        }
       }catch(err){
         emit('failure',{id,message:String(err?.message||err).slice(0,180)});
       }

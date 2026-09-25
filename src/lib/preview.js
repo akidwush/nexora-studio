@@ -1,3 +1,4 @@
+import {captureBootstrap} from './html-frame-capture.js';
 import {timelineBootstrap} from './timeline-runtime.js';
 // First-party HTML Motion Lab sandbox. The resulting srcDoc MUST be used only in
 // iframe sandbox="allow-scripts" WITHOUT allow-same-origin or other permissions.
@@ -64,6 +65,7 @@ export function buildPreviewDoc(input={}){
     '<meta http-equiv="Content-Security-Policy" content="'+PREVIEW_CSP+'">',
     diagnosticsScript(session),
     input.controlled?timelineBootstrap(session):'',
+    input.controlled&&input.capture?captureBootstrap():'',
     '<style>html,body{margin:0;min-height:100%}*{box-sizing:border-box}'+closeStyle(css)+'</style>',
     '</head><body>',
     html,

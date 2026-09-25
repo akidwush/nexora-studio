@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { buildPreviewDoc } from './lib/preview.js';
 import HtmlSandbox from './components/HtmlSandbox';
+import HtmlVideoExport from './components/HtmlVideoExport';
 import type {TimelineUpdate} from './components/HtmlSandbox';
 import { pixelGridToSvg } from './lib/vector.js';
 import { MOTION_PRESETS, getMotionPreset } from './lib/presets.js';
@@ -206,6 +207,7 @@ function App() {
           <div className="panel-head"><b>PREVIEW</b><div className="ratios">{(['16:9','9:16','1:1'] as Ratio[]).map(r=><button key={r} className={r===ratio?'active':''} onClick={() => setRatio(r)}>{r}</button>)}</div></div>
           <HtmlSandbox preview={preview} active={previewActive} ratio={ratio}
             timeline={{enabled:clockEnabled,frame:clockFrame,fps:clockFps,onUpdate:setClockStatus}}/>
+          <HtmlVideoExport source={{html,css,svg:svgCode,js}}/>
           <div className="frame-clock-controls">
             <div className="frame-clock-header">
               <strong>DETERMINISTIC TIMELINE</strong>
@@ -257,7 +259,7 @@ function App() {
             </>}
           </div>
           {previewIssue&&<p className="sandbox-issue" role="alert">{previewIssue}</p>}
-          <p className="panel-note">Isolated preview only. Downloaded HTML is standalone and must be treated as untrusted code. HTML-to-MP4 is not implemented.</p>
+          <p className="panel-note">Sandboxed preview and locally encoded MP4 are separate. Exported standalone HTML remains untrusted code.</p>
         </section>
       </div><div className="mobile-toggle"><button onClick={() => setMobilePreview(false)}>Edit code</button><button onClick={runPreview}>Preview ↗</button></div>
     </main>}
