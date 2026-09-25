@@ -69,11 +69,11 @@ await writeFile(editorPath,safeEditor);
 // Upstream re-exports did not establish local bindings for its global facade.
 const indexPath=resolve(vendor,'src/html-clips/index.js');
 let index=await readFile(indexPath,'utf8');
-if(!index.includes("export {\\n  renderHtmlClip,")||
-   !index.includes("export {\\n  showHtmlEditor,"))
+if(!index.includes("export {\n  renderHtmlClip,")||
+   !index.includes("export {\n  showHtmlEditor,"))
   throw new Error('Upstream HTML clip entrypoint drift');
-index="import {renderHtmlClip,drawHtmlClip,preRenderHtmlClips,clearCache,clearAllCache,getCacheStats} from './renderer.js';\\n"+
-  "import {showHtmlEditor,closeEditor,createHtmlClip,HTML_CLIP_TEMPLATES} from './editor.js';\\n"+index;
+index="import {renderHtmlClip,drawHtmlClip,preRenderHtmlClips,clearCache,clearAllCache,getCacheStats} from './renderer.js';\n"+
+  "import {showHtmlEditor,closeEditor,createHtmlClip,HTML_CLIP_TEMPLATES} from './editor.js';\n"+index;
 await writeFile(indexPath,index);
 
 await copyFile(resolve(patch,'isolated-frame.js'),resolve(vendor,'src/html-clips/isolated-frame.js'));
