@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { buildPreviewDoc } from './lib/preview.js';
 import HtmlSandbox from './components/HtmlSandbox';
+import type {TimelineUpdate} from './components/HtmlSandbox';
 import { pixelGridToSvg } from './lib/vector.js';
 import { MOTION_PRESETS, getMotionPreset } from './lib/presets.js';
 import { svgToPngBlob } from './lib/export.js';
+import {frameTimestamp} from './lib/timeline-runtime.js';
 const VideoWorkspace=React.lazy(()=>import('./video/VideoWorkspace'));
 const AiWorkspace=React.lazy(()=>import('./ai/AiWorkspace'));
 import './styles.css';
@@ -16,9 +18,9 @@ const DEFAULT_HTML = '<main><div class="orb"></div><span class="eyebrow">NEXORA 
 const DEFAULT_CSS = 'main{box-sizing:border-box;min-height:100vh;background:radial-gradient(circle at 72% 25%,#493071,transparent 45%),#110d23;display:flex;flex-direction:column;justify-content:center;padding:9%;color:white;font-family:system-ui;overflow:hidden;position:relative}.eyebrow{font-size:12px;letter-spacing:4px;color:#b9a9ff;z-index:1}h1{font-size:clamp(36px,8vw,90px);line-height:1.05;letter-spacing:-.06em;z-index:1;margin:20px 0}em{font-style:normal;color:#b9a9ff}p{color:#c4b9dc;z-index:1}.orb{position:absolute;right:10%;top:12%;width:42vmin;height:42vmin;border-radius:32%;background:linear-gradient(135deg,#d7c4ff,#744be4 65%,#281650);box-shadow:0 25px 85px #744be483;animation:float 4s ease-in-out infinite}@keyframes float{50%{transform:translateY(-24px) rotate(25deg)}}';
 const DEFAULT_JS = '// Custom JavaScript runs inside an isolated iframe.\nconsole.log("NEXORA Motion Lab ready");';
 const SVG_EXAMPLE = '<svg id="motion-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="100%" role="img" aria-label="Animated SVG demo"><style>.nx-spin{transform-origin:160px 100px;animation:nx-spin 4s linear infinite}@keyframes nx-spin{to{transform:rotate(360deg)}}</style><rect width="320" height="200" rx="30" fill="#1c1b3e"/><g class="nx-spin"><circle cx="160" cy="100" r="62" stroke="#bda2ff" stroke-width="5" fill="none"/><circle cx="222" cy="100" r="14" fill="#ffe3b3"/></g><text x="160" y="106" text-anchor="middle" fill="#fff" font-size="16">SVG MOTION</text></svg>';
-function createSandboxSnapshot(input: {html:string;css:string;svg:string;js:string}) {
+function createSandboxSnapshot(input: {html:string;css:string;svg:string;js:string},controlled=false) {
   const session=crypto.randomUUID();
-  return {session,doc:buildPreviewDoc({...input,session})};
+  return {session,doc:buildPreviewDoc({...input,session,controlled})};
 }
 
 function download(name: string, value: string, type: string) {
@@ -45,6 +47,11 @@ function App() {
   const [preview, setPreview] = useState(() => createSandboxSnapshot({html:DEFAULT_HTML,css:DEFAULT_CSS,svg:'',js:DEFAULT_JS}));
   const [previewActive,setPreviewActive]=useState(true);
   const [previewIssue,setPreviewIssue]=useState('');
+  const [clockEnabled,setClockEnabled]=useState(false);
+  const [clockFps,setClockFps]=useState(30);
+  const [clockDuration,setClockDuration]=useState(4);
+  const [clockFrame,setClockFrame]=useState(0);
+  const [clockStatus,setClockStatus]=useState<TimelineUpdate|null>(null);
   const [svg, setSvg] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [message, setMessage] = useState('Choose an image to generate vector mosaic artwork.');
@@ -76,9 +83,24 @@ function App() {
   }
   function runPreview() {
     try{
-      const next=createSandboxSnapshot({html,css,svg:svgCode,js});
+      const next=createSandboxSnapshot({html,css,svg:svgCode,js},clockEnabled);
+      setClockFrame(0);setClockStatus(null);
       setPreview(next);setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'Preview could not start.');}
+  }
+  function enableClock(enabled:boolean){
+    try{
+      const next=createSandboxSnapshot({html,css,svg:svgCode,js},enabled);
+      setClockEnabled(enabled);setClockFrame(0);setClockStatus(null);
+      setPreview(next);setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
+    }catch(error){setPreviewIssue(error instanceof Error?error.message:'Timeline initialization failed.');}
+  }
+  function changeClockFps(next:number){
+    try{
+      const snapshot=createSandboxSnapshot({html,css,svg:svgCode,js},clockEnabled);
+      setClockFps(next);setClockFrame(0);setClockStatus(null);
+      if(clockEnabled){setPreview(snapshot);setPreviewActive(true);}
+    }catch(error){setPreviewIssue(error instanceof Error?error.message:'Timeline reconfiguration failed.');}
   }
   function exportHtml(){
     try{
@@ -91,7 +113,8 @@ function App() {
     if (!preset) { setPresetId('custom'); return; }
     setPresetId(id);
     setHtml(preset.html); setCss(preset.css); setJs(preset.js);setSvgCode('');
-    setPreview(createSandboxSnapshot({html:preset.html,css:preset.css,svg:'',js:preset.js}));
+    setPreview(createSandboxSnapshot({html:preset.html,css:preset.css,svg:'',js:preset.js},clockEnabled));
+    setClockFrame(0);setClockStatus(null);
     setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
   }
   async function downloadPng() {
@@ -181,7 +204,58 @@ function App() {
         </section>
         <section className={'panel preview-panel'+(!mobilePreview?' preview-mobile-hidden':'')}>
           <div className="panel-head"><b>PREVIEW</b><div className="ratios">{(['16:9','9:16','1:1'] as Ratio[]).map(r=><button key={r} className={r===ratio?'active':''} onClick={() => setRatio(r)}>{r}</button>)}</div></div>
-          <HtmlSandbox preview={preview} active={previewActive} ratio={ratio}/>
+          <HtmlSandbox preview={preview} active={previewActive} ratio={ratio}
+            timeline={{enabled:clockEnabled,frame:clockFrame,fps:clockFps,onUpdate:setClockStatus}}/>
+          <div className="frame-clock-controls">
+            <div className="frame-clock-header">
+              <strong>DETERMINISTIC TIMELINE</strong>
+              <button
+                className={clockEnabled?'enabled':''}
+                aria-label={clockEnabled?'Disable deterministic timeline':'Enable deterministic timeline'}
+                aria-pressed={clockEnabled}
+                onClick={()=>enableClock(!clockEnabled)}>
+                {clockEnabled?'✓ Frame clock enabled':'Enable frame clock'}
+              </button>
+            </div>
+            {clockEnabled&&<>
+              <div className="frame-clock-config">
+                <label htmlFor="motion-clock-fps">Frame rate
+                  <select id="motion-clock-fps" value={clockFps} onChange={event=>changeClockFps(Number(event.target.value))}>
+                    {[12,24,30,60].map(n=><option key={n} value={n}>{n} FPS</option>)}
+                  </select>
+                </label>
+                <label htmlFor="motion-clock-duration">Timeline length
+                  <select id="motion-clock-duration" value={clockDuration} onChange={event=>{
+                    const next=Number(event.target.value);
+                    setClockDuration(next);
+                    setClockFrame(old=>Math.min(old,clockFps*next-1));
+                  }}>
+                    {[1,2,3,4,5,8,10,12].map(n=><option key={n} value={n}>{n} seconds</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="frame-clock-readout">
+                <span>FRAME <b data-testid="requested-frame">{clockFrame}</b> / {clockFps*clockDuration-1}</span>
+                <span>TIME <b data-testid="requested-time">{frameTimestamp(clockFrame,clockFps).toFixed(3)} ms</b></span>
+              </div>
+              <input type="range" aria-label="Select exact HTML animation frame"
+                min={0} max={clockFps*clockDuration-1} step={1} value={clockFrame}
+                onChange={event=>setClockFrame(Number(event.target.value))}/>
+              <div className="frame-clock-actions">
+                <button onClick={()=>setClockFrame(0)} disabled={clockFrame===0}>⏮ Frame 0</button>
+                <button onClick={()=>setClockFrame(n=>Math.max(0,n-1))} disabled={clockFrame===0}>← Previous</button>
+                <button onClick={()=>setClockFrame(n=>Math.min(clockFps*clockDuration-1,n+1))} disabled={clockFrame===clockFps*clockDuration-1}>Next →</button>
+              </div>
+              <p className="frame-clock-status" role="status" data-state={clockStatus?.state||'loading'}>
+                {clockStatus?.state==='ready'&&clockStatus.frame===clockFrame?
+                  'FRAME READY · '+clockStatus.ms.toFixed(3)+' ms':
+                  clockStatus?.state==='error'?'CLOCK ERROR · '+clockStatus.message:
+                  clockStatus?.state==='loading'?(clockStatus.message||'Reloading clock…'):
+                  'Seeking frame '+clockFrame+'…'}
+              </p>
+              <p className="frame-clock-note">Exact frame timestamps for supported CSS/WAAPI/SVG and virtual JS clocks. Rewinding replays JS from frame 0. HTML-to-MP4 is the next stage.</p>
+            </>}
+          </div>
           {previewIssue&&<p className="sandbox-issue" role="alert">{previewIssue}</p>}
           <p className="panel-note">Isolated preview only. Downloaded HTML is standalone and must be treated as untrusted code. HTML-to-MP4 is not implemented.</p>
         </section>

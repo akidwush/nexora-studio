@@ -34,6 +34,8 @@ jobs:
         run: npm run test:ai-browser
       - name: Step 1 isolated HTML/CSS/SVG/JS browser security checks
         run: node tests/html-sandbox.browser.mjs
+      - name: Step 2 deterministic HTML timeline browser regression
+        run: node tests/html-clock.browser.mjs
       - name: Upload passing static build for preview, no deployment
         if: success()
         uses: actions/upload-artifact@v4
