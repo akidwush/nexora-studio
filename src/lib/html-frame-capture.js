@@ -47,6 +47,26 @@ function installFrameCapture(){
     }
   };
   const pseudoRules=[];
+  const inlineFontRules=()=>{
+    const output=[];
+    for(const sheet of document.styleSheets){
+      let rules;
+      try{rules=sheet.cssRules;}catch{
+        throw new Error('Cross-origin stylesheets cannot be faithfully captured.');
+      }
+      for(const rule of rules){
+        if(rule.type!==CSSRule.FONT_FACE_RULE)continue;
+        const css=rule.cssText;
+        const src=rule.style.getPropertyValue('src');
+        // Only data-embedded fonts are permitted in our no-network sandbox.
+        if(!/url\\(\\s*["']?data:font\\//i.test(src)&&
+           !/url\\(\\s*["']?data:application\\/(?:font|x-font|octet-stream)/i.test(src))
+          throw new Error('Custom fonts must be embedded as data: font URLs for video capture.');
+        output.push(css);
+      }
+    }
+    return output.join('\\n');
+  };
   const svgDocument=async(width,height)=>{
     if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||
        width*height>1_000_000)throw new Error('Unsupported snapshot dimensions.');
@@ -104,8 +124,10 @@ function installFrameCapture(){
       ';margin:0!important;width:'+width+'px!important;height:'+height+'px!important;'+
       'overflow:hidden!important;box-sizing:border-box!important;background-color:'+
       rootBackground+';');
-    if(pseudoRules.length){
-      const style=document.createElement('style');style.textContent=pseudoRules.join('\n');
+    const fonts=inlineFontRules();
+    if(pseudoRules.length||fonts){
+      const style=document.createElement('style');
+      style.textContent=fonts+'\\n'+pseudoRules.join('\\n');
       clone.insertBefore(style,clone.firstChild);
     }
     let xml=new XMLSerializer().serializeToString(clone);
@@ -128,9 +150,11 @@ function installFrameCapture(){
         image.src=url;
       });
       const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
-      const ctx=canvas.getContext('2d',{alpha:false});
+      // Preserve genuine alpha in reference PNG. Opaque MP4 matting happens
+      // ONLY at a shared parent-side compositing step.
+      const ctx=canvas.getContext('2d',{alpha:true});
       if(!ctx)throw new Error('Canvas snapshot rendering is unavailable.');
-      ctx.fillStyle='#ffffff';ctx.fillRect(0,0,width,height);
+      ctx.clearRect(0,0,width,height);
       ctx.drawImage(image,0,0,width,height);
       const blob=await new Promise((resolve,reject)=>
         canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('PNG snapshot encoding failed.')),'image/png')

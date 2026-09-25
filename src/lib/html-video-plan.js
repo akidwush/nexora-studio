@@ -5,8 +5,15 @@ export const HTML_VIDEO_SIZES=Object.freeze({
   portrait:{width:720,height:1280,label:'9:16 · 720×1280 (HD)'},
   square:{width:720,height:720,label:'1:1 · 720×720'}
 });
+export function validateMatte(value){
+  const matte=value??'#FFFFFF';
+  if(typeof matte!=='string'||!/^#[0-9a-fA-F]{6}$/.test(matte))
+    throw new Error('MP4 matte must be a six-digit hexadecimal color.');
+  return matte.toUpperCase();
+}
 export function validateHtmlVideoOptions(options){
   const size=options?.size, fps=Number(options?.fps),duration=Number(options?.duration);
+  const matte=validateMatte(options?.matte);
   if(!Object.hasOwn(HTML_VIDEO_SIZES,size))throw new Error('Unsupported HTML output size.');
   if(![24,30,60].includes(fps))throw new Error('HTML capture supports 24, 30 or 60 FPS.');
   if(![1,2,3].includes(duration))throw new Error('HTML export supports 1–3 seconds per render.');
@@ -15,7 +22,7 @@ export function validateHtmlVideoOptions(options){
   const {width,height}=HTML_VIDEO_SIZES[size];
   if(width*height>1_000_000||fps*duration>MAX_TIMELINE_FRAMES)
     throw new Error('HTML capture exceeds the frame or pixel budget.');
-  return Object.freeze({size,width,height,fps,duration,frames:fps*duration});
+  return Object.freeze({size,width,height,fps,duration,frames:fps*duration,matte});
 }
 export function checkedCaptureMessage(message,request,plan){
   if(!message||message.kind!=='captured'||message.id!==request.id||
