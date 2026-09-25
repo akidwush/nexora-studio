@@ -61,8 +61,20 @@ safeEditor=safeEditor.replace(
   "  currentClip = null;\n}\n\n/**\n * Apply changes to clip",
   "  const preview=document.getElementById('htmlClipPreview');\n  if(preview)destroyIsolatedHtmlPreview(preview);\n  currentClip = null;\n}\n\n/**\n * Apply changes to clip"
 );
+if(!safeEditor.includes('open: openEditor,'))throw new Error('Upstream editor API drift');
+safeEditor=safeEditor.replace('open: openEditor,','open: showHtmlEditor,');
 if(safeEditor.includes('preview.innerHTML ='))throw new Error('Unsafe preview survived patch');
 await writeFile(editorPath,safeEditor);
+
+// Upstream re-exports did not establish local bindings for its global facade.
+const indexPath=resolve(vendor,'src/html-clips/index.js');
+let index=await readFile(indexPath,'utf8');
+if(!index.includes("export {\\n  renderHtmlClip,")||
+   !index.includes("export {\\n  showHtmlEditor,"))
+  throw new Error('Upstream HTML clip entrypoint drift');
+index="import {renderHtmlClip,drawHtmlClip,preRenderHtmlClips,clearCache,clearAllCache,getCacheStats} from './renderer.js';\\n"+
+  "import {showHtmlEditor,closeEditor,createHtmlClip,HTML_CLIP_TEMPLATES} from './editor.js';\\n"+index;
+await writeFile(indexPath,index);
 
 await copyFile(resolve(patch,'isolated-frame.js'),resolve(vendor,'src/html-clips/isolated-frame.js'));
 await copyFile(resolve(patch,'html-canvas-renderer.js'),resolve(vendor,'src/html-in-canvas/renderer.js'));
