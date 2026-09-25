@@ -45,9 +45,29 @@ async function exportMp4(page,fps){
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps',String(fps));
   await page.selectOption('#html-video-duration','1');
-  const start=page.waitForEvent('download',{timeout:180000});
+  const start=page.waitForEvent('download',{timeout:60000});
+  start.catch(()=>{});
   await page.getByRole('button',{name:/Render MP4/}).click();
-  const item=await start;
+  const item=await Promise.race([
+    start,
+    (async()=>{
+      const expires=Date.now()+50000;
+      let previous='';
+      while(Date.now()<expires){
+        const message=(await page.locator('.html-video-message').textContent())??'';
+        if(message!==previous){
+          console.log('HTML capture state:',message);
+          previous=message;
+        }
+        if(/(?:failed|unavailable|unsupported|could not|timed out|cannot|exceeds|invalid|cancelled|error)/i.test(message)
+            && !message.includes('Checking browser encoder')){
+          throw new Error('HTML capture UI failed: '+message);
+        }
+        await wait(2000);
+      }
+      throw new Error('HTML capture did not download within 50s. Last UI: '+previous);
+    })()
+  ]);
   const video=page.getByRole('video',{name:'Rendered HTML video playback'});
   // aria role="video" can vary across browser accessibility trees; query by element.
   await page.locator('video[aria-label="Rendered HTML video playback"]').waitFor({timeout:180000});
@@ -76,6 +96,8 @@ try{
   await ready();
   browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:1440,height:900},acceptDownloads:true});
+  page.on('pageerror',error=>console.log('PAGE ERROR:',error.message));
+  page.on('console',msg=>{if(msg.type()==='error')console.log('BROWSER CONSOLE:',msg.text().slice(0,300));});
   await page.goto(host+'/?tool=motion',{waitUntil:'domcontentloaded'});
   const html='<main id="stage"><div id="mover"></div><p id="clock-readout">FRAME</p></main>';
   const css='#stage{position:relative;width:100vw;height:100vh;overflow:hidden;background:rgb(12,24,48)}'+
