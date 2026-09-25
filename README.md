@@ -1,26 +1,32 @@
 # NEXORA Studio
 
-Standalone premium creative-tools website. Mobile-first React + TypeScript + Vite, independent from NEXORA V1/V2.
+Standalone creative-tools website; deliberately separate from NEXORA V1/V2.
 
-## In this foundation
+## Step 1 capabilities
+- Responsive React + TypeScript landing page and workspace.
+- **HTML Motion Lab:** HTML/CSS/JS code editing, four reusable motion presets, iframe-sandboxed preview, aspect ratio controls, and standalone HTML export. No video export in this tool yet.
+- **Image to Vector Mosaic:** converts uploaded PNG/JPEG/WebP offline to vector-cell SVG; export SVG or PNG. This is not contour tracing or AI image-to-code.
+- **Studio Pro:** real original multi-track editor can be built and served separately under `/studio-pro/`. Upstream source is pinned, **not copied to this repo**, and its original MPL-2.0 notices are maintained.
+- **AI Motion Generator:** future, not active.
 
-- HTML Motion Lab: edit HTML/CSS/JS, isolated preview, aspect ratio controls, export standalone HTML.
-- Image to Vector Mosaic: convert uploaded PNG/JPEG/WebP locally into vector-cell SVG. This is not contour tracing.
-- Optional pinned Studio Pro original editor, licensed MPL-2.0, built in its own directory if explicitly imported.
-- AI motion generator is planned, not yet active.
+## Development
+Node.js 22+.
 
-## Commands
+```sh
+npm install
+npm run dev
+npm test
+npm run build
+```
 
-Node 22+ required.
+## Optional *full editor* build
+```sh
+npm run studio:sync
+npm run build:full
+node scripts/verify-full-build.mjs
+npm run preview
+```
 
-    npm install
-    npm run dev
-    npm test
-    npm run build
+Full build artifact is validated automatically by `.github/workflows/full-studio.yml` on `studio-step1-editor` or on manual dispatch. This never deploys or modifies NEXORA V1/V2.
 
-For optional upstream Studio Pro build:
-
-    npm run studio:sync
-    npm run build:full
-
-This serves upstream editor from dist/studio-pro/ for static hosting. Do not share authentication state with unreviewed upstream components. See docs/ARCHITECTURE.md and docs/THIRD_PARTY.md. No production deployment is configured.
+See [Step 1 QA & limitations](docs/STEP1.md), [architecture](docs/ARCHITECTURE.md) and [third-party licensing](docs/THIRD_PARTY.md). Do not put authentication on the same origin as the unreviewed upstream editor.
