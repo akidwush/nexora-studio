@@ -1,8 +1,6 @@
 name: Step 2 - Native video renderer
 on:
   workflow_dispatch:
-  push:
-    branches: [studio-step2-video]
   pull_request:
     branches: [main]
 permissions:
@@ -16,8 +14,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install shell
-        run: npm install --no-audit --no-fund
+      - name: Reproducible install with committed lock
+        run: npm ci --no-fund
       - name: Deterministic rendering unit tests
         run: npm test
       - name: Fetch pinned Studio Pro upstream with notices
