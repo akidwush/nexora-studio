@@ -60,7 +60,39 @@ function __nexoraSafeMedia(file,kind) {
     font:/^font\\/(?:woff|woff2|ttf|otf)$|^application\\/(?:font-woff|font-woff2|x-font-ttf|x-font-otf)$/
   };
   const limits={image:20*1024*1024,audio:90*1024*1024,video:250*1024*1024,font:2.5*1024*1024};
-  return Boolean(types[kind]?.test(file.type) && file.size <= limits[kind]);
+  const fallbackFont=kind==='font' && file.type==='' && /\\.(?:woff2?|ttf|otf)$/i.test(file.name);
+  return Boolean((types[kind]?.test(file.type) || fallbackFont) && file.size <= limits[kind]);
+}
+// Signature checks are separate from a trusted decoder; a valid header is
+// necessary but never a guarantee of safe media or decompression bounds.
+async function __nexoraInspectMedia(file,kind) {
+  if(!__nexoraSafeMedia(file,kind))return false;
+  let head;
+  try{head=new Uint8Array(await file.slice(0,16).arrayBuffer());}
+  catch{return false;}
+  if(head.length<8)return false;
+  const str=(start,len)=>String.fromCharCode(...head.subarray(start,start+len));
+  const riff=str(0,4)==='RIFF',ftyp=str(4,4)==='ftyp',ebml=head[0]===26&&head[1]===69&&head[2]===223&&head[3]===163;
+  switch(kind){
+    case 'image':
+      if(file.type==='image/png')return head[0]===137&&str(1,3)==='PNG'&&head[4]===13&&head[5]===10&&head[6]===26&&head[7]===10;
+      if(file.type==='image/jpeg')return head[0]===255&&head[1]===216&&head[2]===255;
+      if(file.type==='image/webp')return riff&&str(8,4)==='WEBP';
+      if(file.type==='image/gif')return str(0,6)==='GIF87a'||str(0,6)==='GIF89a';
+      return false;
+    case 'video':return file.type==='video/webm'?ebml:ftyp;
+    case 'audio':
+      if(file.type==='audio/mpeg')return str(0,3)==='ID3'||head[0]===255&&(head[1]&224)===224;
+      if(file.type==='audio/wav'||file.type==='audio/x-wav')return riff&&str(8,4)==='WAVE';
+      if(file.type==='audio/ogg')return str(0,4)==='OggS';
+      if(file.type==='audio/webm')return ebml;
+      if(file.type==='audio/mp4')return ftyp;
+      return false;
+    case 'font':
+      return str(0,4)==='wOFF'||str(0,4)==='wOF2'||str(0,4)==='OTTO'||
+        (head[0]===0&&head[1]===1&&head[2]===0&&head[3]===0);
+    default:return false;
+  }
 }
 function __nexoraAssertSafeProject(data) {
   if (!data || typeof data!=='object' || !Array.isArray(data.clips) ||
@@ -143,13 +175,18 @@ once('project thumbnail sink',
 // re-import. The browser's input accept attribute is NOT a security check.
 once('local media picker allowlist',
  "mediaInput.addEventListener('change', async (e) => {\n            const files = Array.from(e.target.files);\n            if (!files.length) return;",
- "mediaInput.addEventListener('change', async (e) => {\n            const files = Array.from(e.target.files).filter(file => __nexoraSafeMedia(file,'image') || __nexoraSafeMedia(file,'video'));\n            if (!files.length) { __nexoraDisabled('Rejected media type or size'); return; }");
+ "mediaInput.addEventListener('change', async (e) => {\n            const files = [];\n            for(const file of Array.from(e.target.files)) {\n                const kind=file.type.startsWith('image/')?'image':'video';\n                if(await __nexoraInspectMedia(file,kind)) files.push(file);\n            }\n            if (!files.length) { __nexoraDisabled('Rejected media signature, type or size'); return; }");
 once('audio library import allowlist',
+ "async function importAudioFilesIntoLibrary(files, group) {", "async function importAudioFilesIntoLibrary(files, group) {");
+once('audio library import files mutable',
+ "const entries = [...(files || [])].map(f => {",
+ "let entries = [...(files || [])].map(f => {");
+once('audio library import signatures',
  "}).filter(e => isImportableAudioFile(e.file));",
- "}).filter(e => isImportableAudioFile(e.file) && __nexoraSafeMedia(e.file,'audio'));");
+ "}).filter(e => isImportableAudioFile(e.file) && __nexoraSafeMedia(e.file,'audio'));\n            const verified=[];\n            for(const entry of entries) if(await __nexoraInspectMedia(entry.file,'audio')) verified.push(entry);\n            entries=verified;");
 once('reimport allowlist',
  "for (const f of files) {\n                const firstIdx = pool.findIndex(c => clipMatchesFile(c, f));",
- "for (const f of files) {\n                if (!['image','video','audio'].some(kind=>__nexoraSafeMedia(f,kind))) { unmatched.push(String(f?.name||'invalid')); continue; }\n                const firstIdx = pool.findIndex(c => clipMatchesFile(c, f));");
+ "for (const f of files) {\n                const kind=f.type.startsWith('image/')?'image':f.type.startsWith('video/')?'video':'audio';\n                if (!(await __nexoraInspectMedia(f,kind))) { unmatched.push(String(f?.name||'invalid')); continue; }\n                const firstIdx = pool.findIndex(c => clipMatchesFile(c, f));");
 once('subtitle import size guard',
  "for (const f of e.target.files) {\n                    const entries = parseSRT(await f.text());",
  "for (const f of e.target.files) {\n                    if(!(f instanceof File)||f.size>1024*1024||!/\\.(?:srt|vtt)$/i.test(f.name)){__nexoraDisabled('Oversized or invalid subtitle');continue;}\n                    const entries = parseSRT(await f.text());");
