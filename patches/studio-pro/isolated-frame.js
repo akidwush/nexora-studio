@@ -82,6 +82,7 @@ function makeSrcdoc(session,width,height) {
             const bytes=await blob.arrayBuffer();
             send('nx-png',{requestId:data.requestId,width:canvas.width,height:canvas.height,bytes},[bytes]);
           }catch(error){
+            console.error('[NEXORA isolated frame capture]',String(error?.message||error).slice(0,160));
             send('nx-error',{requestId:data.requestId,message:'Sandbox frame capture failed'});
           }
         }
