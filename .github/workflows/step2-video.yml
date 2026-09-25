@@ -32,6 +32,8 @@ jobs:
         run: node tests/video.browser.mjs
       - name: Step 4 local drafts, mock server AI and real MP4 browser QA
         run: npm run test:ai-browser
+      - name: Step 1 isolated HTML/CSS/SVG/JS browser security checks
+        run: node tests/html-sandbox.browser.mjs
       - name: Upload passing static build for preview, no deployment
         if: success()
         uses: actions/upload-artifact@v4
