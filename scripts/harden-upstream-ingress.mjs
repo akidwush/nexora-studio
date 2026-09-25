@@ -12,7 +12,7 @@ const original=await readFile(htmlPath);
 const gitBlob=createHash('sha1').update('blob '+original.byteLength+'\0').update(original).digest('hex');
 const LOCKED_BLOB='ea5835d1f1ae408433b46d3f82a3dcc37362f127';
 if(gitBlob!==LOCKED_BLOB)throw new Error('Upstream monolithic index changed; stop public-ingress hardening until fully re-audited: '+gitBlob);
-let html=original.toString('utf8');
+let html=original.toString('utf8').replace(/\r\n/g,'\n');
 const changes=[];
 function once(label,source,target){
  const count=html.split(source).length-1;
@@ -88,7 +88,7 @@ once('no-external-lucide','<script src="https://unpkg.com/lucide@1.28.0/dist/umd
 all('remove-google-preconnect','<link rel="preconnect" href="https://fonts.googleapis.com">','<!-- external font preconnect blocked -->',1);
 all('remove-google-font-preconnect','<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>','<!-- external font preconnect blocked -->',1);
 all('opaque-runtime-iframes',"document.createElement('iframe')","__nexoraCreateOpaqueFrame()",4);
-once('main-head','<head>','<head>\n<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data: blob:; media-src \'self\' blob: data:; font-src \'self\' data:; connect-src \'self\'; frame-src \'self\' about:; child-src \'self\' about:; worker-src \'self\' blob:; object-src \'none\'; base-uri \'none\'; form-action \'none\'; navigate-to \'self\'">\n'+guard');
+once('main-head','<html lang="en" class="dark">\n<head>','<html lang="en" class="dark">\n<head>\n<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data: blob:; media-src \'self\' blob: data:; font-src \'self\' data:; connect-src \'self\'; frame-src \'self\' about:; child-src \'self\' about:; worker-src \'self\' blob:; object-src \'none\'; base-uri \'none\'; form-action \'none\'; navigate-to \'self\'">\n'+guard);
 // Do not replace the iframe creator inserted in the guard: it does not have
 // to be traversed in the monolithic source; it constructs a fresh native frame.
 once('html-modal-iframe','<iframe id="htmlEditorPreview"','<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" id="htmlEditorPreview"');
@@ -142,8 +142,8 @@ once('project thumbnail sink',
 // Restrict file-type/size BEFORE first read, including drag/drop and folder
 // re-import. The browser's input accept attribute is NOT a security check.
 once('local media picker allowlist',
- "const files = Array.from(e.target.files);\n            if (!files.length) return;",
- "const files = Array.from(e.target.files).filter(file => __nexoraSafeMedia(file,'image') || __nexoraSafeMedia(file,'video'));\n            if (!files.length) { __nexoraDisabled('Rejected media type or size'); return; }");
+ "mediaInput.addEventListener('change', async (e) => {\n            const files = Array.from(e.target.files);\n            if (!files.length) return;",
+ "mediaInput.addEventListener('change', async (e) => {\n            const files = Array.from(e.target.files).filter(file => __nexoraSafeMedia(file,'image') || __nexoraSafeMedia(file,'video'));\n            if (!files.length) { __nexoraDisabled('Rejected media type or size'); return; }");
 once('audio library import allowlist',
  "}).filter(e => isImportableAudioFile(e.file));",
  "}).filter(e => isImportableAudioFile(e.file) && __nexoraSafeMedia(e.file,'audio'));");
