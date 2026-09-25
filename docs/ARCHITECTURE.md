@@ -5,7 +5,7 @@ Independent creative-tools application. This code never touches NEXORA V1 or V2.
 - React + TypeScript + Vite shell, mobile-first at 360/390/412px.
 - HTML Motion Lab: user code in sandboxed iframe WITHOUT allow-same-origin, plus restrictive CSP; HTML download supported. No video export yet.
 - Image to Vector Mosaic: offline sampled pixel-to-SVG rectangles; not full tracing.
-- Studio Pro: separate opt-in build from pinned upstream commit, served under /studio-pro/. Its source stays in ignored vendor/ with original LICENSE and NOTICE, and license files are copied to output. Review third-party code before production auth integration.
+- Studio Pro: separate mandatory-hardening opt-in build from pinned upstream commit, emitted to dist-studio-pro/ **outside** the dashboard dist/ artifact. Deploy only on a separate HTTPS site, without shared cookies/auth. No /studio-pro/ same-origin fallback. LICENSE and NOTICE are kept.
 - Future work: real video encoding, professional tracing, AI generation via secure server backend, quota, user projects.
 
 ## Build gates
@@ -19,3 +19,4 @@ Canvas Motion Video loads MediaBunny only when the Video Lab page is opened (rou
 
 ## Step 4: optional secure scene AI
 The independently lazy-loaded creative generator shares the Step 2 Canvas encoder without accepting model-authored JavaScript, CSS, URLs, or arbitrary shapes. A versioned, whitelisted scene JSON schema is validated on server and browser; the same scene renders the preview and every MP4 frame. Server AI is disabled by default. When enabled it requires a Gemini API key, pinned server model, explicit operator flag, trusted Vercel request origin and per-IP atomic Upstash Redis rate limiting; if Redis is missing or down, paid calls are blocked. A local deterministic draft generator remains fully functional without any provider. Before publicly enabling paid AI, implement real account authentication, abuse monitoring and billing limits; IP rate limiting alone is not production-grade authorization.
+\n## Studio Pro user-code isolation\nNever package the optional third-party editor into the primary SPA deployment. The downstream patch replaces identified Studio Pro HTML clip, HTML Canvas and live preview rendering with sandboxed opaque-origin iframes. The trusted editor sends HTML/CSS/JS via postMessage only after sandbox boot and receives bounded PNG image data, never a document reference or trusted authorization data. Do not promote this partial patch to a full third-party source audit or enable public multi-user imports / editor authorization until remaining upstream code and media/project loaders receive a dedicated security review. See SECURITY.md and docs/STUDIO_PRO_ISOLATION.md.\n
