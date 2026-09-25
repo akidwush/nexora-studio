@@ -9,11 +9,13 @@
     "build": "tsc --noEmit && vite build",
     "studio:sync": "node scripts/sync-studio-pro.mjs",
     "build:full": "npm run build && node scripts/build-upstream.mjs",
-    "test:browser": "node tests/browser.smoke.mjs"
+    "test:browser": "node tests/browser.smoke.mjs",
+    "test:ai-browser": "node tests/ai.browser.mjs"
   },
   "dependencies": {
     "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "react-dom": "19.1.1",
+    "mediabunny": "1.50.9"
   },
   "devDependencies": {
     "@types/react": "19.1.10",

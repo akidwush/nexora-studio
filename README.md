@@ -1,32 +1,31 @@
 # NEXORA Studio
 
-Standalone creative-tools website; deliberately separate from NEXORA V1/V2.
+Independent creative/motion tools website. NEXORA V1 and V2 remain untouched.
 
-## Step 1 capabilities
-- Responsive React + TypeScript landing page and workspace.
-- **HTML Motion Lab:** HTML/CSS/JS code editing, four reusable motion presets, iframe-sandboxed preview, aspect ratio controls, and standalone HTML export. No video export in this tool yet.
-- **Image to Vector Mosaic:** converts uploaded PNG/JPEG/WebP offline to vector-cell SVG; export SVG or PNG. This is not contour tracing or AI image-to-code.
-- **Studio Pro:** real original multi-track editor can be built and served separately under `/studio-pro/`. Upstream source is pinned, **not copied to this repo**, and its original MPL-2.0 notices are maintained.
-- **AI Motion Generator:** future, not active.
+## Working tools
+- **HTML Motion Lab**: isolated HTML/CSS/JS editor, four animation presets, preview ratios, standalone HTML export.
+- **Image to Vector Mosaic**: process PNG/JPEG/WebP locally into SVG rectangle artwork; download SVG/PNG. Not smooth contour tracing or AI image-to-code.
+- **Canvas Motion Video** (Step 2): a dedicated deterministic frame-rendered Canvas animation tool. Three built-in templates, responsive preview/timeline, 12/24/30 FPS, bounded 1–12s exports up to HD, real H.264 MP4 using MediaBunny/WebCodecs with progress/cancel. Silent video only.
+- **Studio Pro**: optional full original third-party timeline editor with MPL-2.0 attribution, built separately from pinned revision. See docs/THIRD_PARTY.md.
+- **AI Motion Generator (Step 4)**: working local prompt-to-storyboard drafts and editable preview; real Gemini-powered scene generation via a fail-closed optional Vercel API with strict server rate limits and key isolation. Exports validated scene JSON or genuine browser-rendered silent MP4. See docs/STEP4.md.
 
 ## Development
-Node.js 22+.
+Requires Node 22+.
 
-```sh
-npm install
-npm run dev
-npm test
-npm run build
-```
+    npm install
+    npm run dev
+    npm test
+    npm run build
 
-## Optional *full editor* build
-```sh
-npm run studio:sync
-npm run build:full
-node scripts/verify-full-build.mjs
-npm run preview
-```
+## Full original Studio Pro integration
 
-Full build artifact is validated automatically by `.github/workflows/full-studio.yml` on `studio-step1-editor` or on manual dispatch. This never deploys or modifies NEXORA V1/V2.
+    npm run studio:sync
+    npm run build:full
+    node scripts/verify-full-build.mjs
+    npx playwright install chromium
+    npm run test:browser
+    node tests/video.browser.mjs
 
-See [Step 1 QA & limitations](docs/STEP1.md), [architecture](docs/ARCHITECTURE.md) and [third-party licensing](docs/THIRD_PARTY.md). Do not put authentication on the same origin as the unreviewed upstream editor.
+CI builds and browser-tests these separately. No production deploy is configured. Do not co-host unreviewed upstream code with real NEXORA auth sessions.
+
+Read docs/STEP1.md, docs/STEP2.md, docs/ARCHITECTURE.md and docs/THIRD_PARTY.md.

@@ -4,9 +4,11 @@ import { buildPreviewDoc } from './lib/preview.js';
 import { pixelGridToSvg } from './lib/vector.js';
 import { MOTION_PRESETS, getMotionPreset } from './lib/presets.js';
 import { svgToPngBlob } from './lib/export.js';
+const VideoWorkspace=React.lazy(()=>import('./video/VideoWorkspace'));
+const AiWorkspace=React.lazy(()=>import('./ai/AiWorkspace'));
 import './styles.css';
 
-type Page = 'home' | 'motion' | 'image';
+type Page = 'home' | 'motion' | 'image' | 'video' | 'ai';
 type CodeKind = 'html' | 'css' | 'js';
 type Ratio = '16:9' | '9:16' | '1:1';
 const DEFAULT_HTML = '<main><div class="orb"></div><span class="eyebrow">NEXORA / MOTION STUDIO</span><h1>MAKE IDEAS<br><em>MOVE.</em></h1><p>Your canvas. Your code. Your motion.</p></main>';
@@ -20,8 +22,13 @@ function download(name: string, value: string, type: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+function readPageFromLocation(): Page {
+  const raw=new URLSearchParams(window.location.search).get('tool');
+  return raw==='motion'||raw==='image'||raw==='video'||raw==='ai'?raw:'home';
+}
+
 function App() {
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPage] = useState<Page>(()=>readPageFromLocation());
   const [html, setHtml] = useState(DEFAULT_HTML);
   const [css, setCss] = useState(DEFAULT_CSS);
   const [js, setJs] = useState(DEFAULT_JS);
@@ -35,6 +42,12 @@ function App() {
   const [studioReady, setStudioReady] = useState(false);
   const [mobilePreview, setMobilePreview] = useState(false);
 
+  useEffect(()=>{
+    const onPop=()=>{setPage(readPageFromLocation());setMobilePreview(false);window.scrollTo(0,0);};
+    window.addEventListener('popstate',onPop);
+    return()=>window.removeEventListener('popstate',onPop);
+  },[]);
+
   useEffect(() => {
     fetch('/studio-pro/index.html', {cache: 'no-store'})
       .then(r => r.ok ? r.text() : '')
@@ -44,7 +57,14 @@ function App() {
 
   useEffect(() => () => { if (imageUrl) URL.revokeObjectURL(imageUrl); }, [imageUrl]);
 
-  function navigate(next: Page) { setPage(next); setMobilePreview(false); window.scrollTo(0,0); }
+  function navigate(next: Page) {
+    if(next===page)return;
+    const nextUrl=new URL(window.location.href);
+    if(next==='home')nextUrl.searchParams.delete('tool');
+    else nextUrl.searchParams.set('tool',next);
+    window.history.pushState({nexoraTool:next},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
+    setPage(next);setMobilePreview(false);window.scrollTo(0,0);
+  }
   function runPreview() { setPreview(buildPreviewDoc({html,css,js})); setMobilePreview(true); }
   function selectPreset(id: string) {
     const preset = getMotionPreset(id);
@@ -101,6 +121,7 @@ function App() {
         <button className={page==='home'?'active':''} onClick={() => navigate('home')}>Explore</button>
         <button className={page==='motion'?'active':''} onClick={() => navigate('motion')}>Motion Lab</button>
         <button className={page==='image'?'active':''} onClick={() => navigate('image')}>Image Tools</button>
+        <button className={page==='video'?'active':''} onClick={() => navigate('video')}>Video Lab</button>
       </nav>
       <span className="version">CREATIVE SUITE / BETA</span>
     </header>
@@ -116,12 +137,13 @@ function App() {
         </div>
         <div className="hero-art" aria-hidden="true"><div className="ring one"></div><div className="ring two"></div><div className="art-core">✳</div><span>IDEAS → OUTPUT</span></div>
       </section>
-      <div id="tools" className="section-title"><div><span className="eyebrow">DISCOVER THE WORKSPACE</span><h2>Tools made to create.</h2></div><span>01 — 04 / CREATIVE TOOLS</span></div>
+      <div id="tools" className="section-title"><div><span className="eyebrow">DISCOVER THE WORKSPACE</span><h2>Tools made to create.</h2></div><span>01 — 05 / CREATIVE TOOLS</span></div>
       <div className="cards">
         <article className="tool violet"><div className="tool-top"><span className="tool-icon">&lt;/&gt;</span><span>01</span></div><div><small>AVAILABLE NOW</small><h3>HTML Motion Lab</h3><p>Write HTML, CSS and JavaScript. Start from four motion presets or create your own animation.</p></div><button onClick={() => navigate('motion')}>Open workspace <span>↗</span></button></article>
         <article className="tool blue"><div className="tool-top"><span className="tool-icon">▦</span><span>02</span></div><div><small>AVAILABLE NOW</small><h3>Image to Vector Mosaic</h3><p>Turn a local image into colorful SVG pixel-vector artwork without server uploads.</p></div><button onClick={() => navigate('image')}>Open workspace <span>↗</span></button></article>
-        <article className="tool amber"><div className="tool-top"><span className="tool-icon">▶</span><span>03</span></div><div><small>OPTIONAL MODULE</small><h3>Studio Pro Editor</h3><p>Multi-track timeline and video export in a separately built, license-preserving editor.</p></div>{studioReady?<a className="tool-link" href="/studio-pro/">Open workspace <span>↗</span></a>:<span className="disabled">Requires optional build</span>}</article>
-        <article className="tool emerald"><div className="tool-top"><span className="tool-icon">✦</span><span>04</span></div><div><small>ROADMAP</small><h3>AI Motion Generator</h3><p>Prompt-to-animation with a future secure API integration and server-side access controls.</p></div><span className="disabled">Coming later</span></article>
+        <article className="tool magenta"><div className="tool-top"><span className="tool-icon">◉</span><span>03</span></div><div><small>AVAILABLE NOW</small><h3>Canvas Motion Video</h3><p>Render real frame-accurate, silent MP4 videos directly in your browser. Three motion presets included.</p></div><button onClick={() => navigate('video')}>Open video renderer <span>↗</span></button></article>
+        <article className="tool amber"><div className="tool-top"><span className="tool-icon">▶</span><span>04</span></div><div><small>OPTIONAL MODULE</small><h3>Studio Pro Editor</h3><p>Multi-track timeline and video export in a separately built, license-preserving editor.</p></div>{studioReady?<a className="tool-link" href="/studio-pro/">Open workspace <span>↗</span></a>:<span className="disabled">Requires optional build</span>}</article>
+        <article className="tool emerald"><div className="tool-top"><span className="tool-icon">✦</span><span>05</span></div><div><small>LOCAL NOW · AI OPTIONAL</small><h3>AI Motion Generator</h3><p>Turn your ideas into editable motion storyboards. Local drafts work offline; server AI needs secure setup.</p></div><button onClick={() => navigate("ai")}>Open creative generator <span>↗</span></button></article>
       </div>
     </main>}
 
@@ -142,6 +164,9 @@ function App() {
         </section>
       </div><div className="mobile-toggle"><button onClick={() => setMobilePreview(false)}>Edit code</button><button onClick={runPreview}>Preview ↗</button></div>
     </main>}
+
+    {page==='video' && <React.Suspense fallback={<main className="container workspace" aria-live="polite">Loading local video renderer…</main>}><VideoWorkspace onBack={()=>navigate('home')} /></React.Suspense>}
+    {page==='ai' && <React.Suspense fallback={<main className="container workspace" aria-live="polite">Loading creative generator…</main>}><AiWorkspace onBack={()=>navigate('home')} /></React.Suspense>}
 
     {page==='image' && <main className="container workspace">
       <div className="workspace-title"><div><button className="back" onClick={() => navigate('home')}>← All tools</button><h1>Image to Vector Mosaic</h1><p>Offline sampled SVG conversion. True contour tracing is planned separately.</p></div>{svg && <div className="buttons"><button className="secondary" onClick={() => download('nexora-mosaic.svg',svg,'image/svg+xml')}>↓ Download SVG</button><button className="primary" onClick={() => void downloadPng()}>↓ Download PNG</button></div>}</div>

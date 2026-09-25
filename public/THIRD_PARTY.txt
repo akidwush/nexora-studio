@@ -1,0 +1,10 @@
+NEXORA Studio third-party distribution notices
+
+MediaBunny v1.50.9
+Copyright belongs to its respective author and contributors.
+Source: https://github.com/Vanilagy/mediabunny
+License: Mozilla Public License 2.0 (see /licenses/MPL-2.0.txt).
+
+Optional standalone Studio Pro editor: https://github.com/simplearyan/studio-pro
+Pinned source commit: a3d145faeca9b08ab53bb994bb64accb2c356b89
+MPL-2.0; standalone original editor also distributes LICENSE and NOTICE in /studio-pro/.
