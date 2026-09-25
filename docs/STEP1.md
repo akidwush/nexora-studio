@@ -32,3 +32,13 @@ Open `http://localhost:4173/` and use the Studio Pro card, then review the edito
 - **No automated deployment** to production in this stage.
 - Host Studio Pro on a separate subdomain/origin *before* adding NEXORA auth or paid features.
 - Keep MPL-2.0 LICENSE/NOTICE and covered-source availability obligations.
+
+## Automated browser smoke coverage
+The Step 1 workflow additionally starts the built site in Chromium and checks:
+- Four creative tools load on the homepage; desktop screenshot is saved.
+- Motion Lab CSS preset renders in the isolated iframe; HTML download works.
+- Red PNG fixture is converted to downloadable SVG and real PNG bytes.
+- 390px mobile homepage has no horizontal scrolling; screenshot is saved.
+- Built Studio Pro editor loads at /studio-pro/ and requests compiled assets.
+
+**Not yet covered:** actual Studio Pro timeline operations, browser MP4 export/playback, Android physical-device QA, or a complete security audit. Screenshots and full static build are available in the workflow artifacts for review.
