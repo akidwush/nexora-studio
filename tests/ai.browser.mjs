@@ -32,6 +32,9 @@ try{
  await page.getByRole('button',{name:/Create local draft/}).click();
  await page.locator('.ai-mode[data-mode=local]').waitFor();
  assert.equal(await page.locator('#ai-template').inputValue(),'waves');
+ await page.locator('#ai-title').fill('');
+ await page.waitForTimeout(180);
+ await page.locator('canvas[aria-label="Generated scene preview"]').waitFor();
  await page.locator('#ai-title').fill('CUSTOM OCEAN FILM');
  await page.getByRole('button',{name:'Apply sunset theme'}).click();
  const sceneDownload=page.waitForEvent('download');

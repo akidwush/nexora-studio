@@ -62,7 +62,8 @@ export default function AiWorkspace({onBack}:Props){
    if(!canvas||!ctx)return;
    const start=performance.now()-clock.current*1000;
    let raf=0,lastEmit=0;
-   const frame=(t:number)=>drawAiScene(ctx,{scene,time:t,duration,width:canvas.width,height:canvas.height});
+   const previewScene=scene.title.trim()?scene:{...scene,title:'YOUR HEADLINE'};
+   const frame=(t:number)=>drawAiScene(ctx,{scene:previewScene,time:t,duration,width:canvas.width,height:canvas.height});
    frame(clock.current);
    if(playing){
      const tick=(now:number)=>{
@@ -109,7 +110,7 @@ export default function AiWorkspace({onBack}:Props){
  function seek(value:number){
    setPlaying(false);clock.current=value;setPlayhead(value);
    const canvas=canvasRef.current,ctx=canvas?.getContext('2d',{alpha:false});
-   if(canvas&&ctx)drawAiScene(ctx,{scene,time:value,duration,width:canvas.width,height:canvas.height});
+   if(canvas&&ctx)drawAiScene(ctx,{scene:scene.title.trim()?scene:{...scene,title:'YOUR HEADLINE'},time:value,duration,width:canvas.width,height:canvas.height});
  }
  async function exportScene(){
    if(rendering)return;
