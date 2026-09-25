@@ -47,7 +47,7 @@ jobs:
           name: nexora-studio-step2-static-preview
           path: dist/
           retention-days: 7
-      - name: Upload desktop and mobile QA screenshots
+      - name: Upload distinct patched Studio Pro build (dedicated host only)\n        if: success()\n        uses: actions/upload-artifact@v4\n        with:\n          name: studio-pro-isolated-host-only\n          path: dist-studio-pro/\n          retention-days: 7\n      - name: Upload desktop and mobile QA screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
