@@ -96,7 +96,12 @@ export default function HtmlVideoExport({source}:Props){
       if(task.signal.aborted)return;
       setRawPreview({key,index:previewIndex,png});
       setMessage('Export-matching frame '+previewIndex+' ready. Transparent PNG is available.');
-    }catch(error){if(!task.signal.aborted)setMessage(error instanceof Error?error.message:'Preview failed.');}
+    }catch(error){if(!task.signal.aborted){
+      setMessage(error instanceof Error?error.message:'Preview failed.');
+      setReport(makeRenderReport({...dimensions,size,fps,duration,matte},{
+        error,phase:'preview',mode:'memory'
+      }));
+    }}
     finally{if(abortRef.current===task)abortRef.current=null;setPreviewing(false);}
   };
   const exportVideo=async()=>{
@@ -145,7 +150,7 @@ export default function HtmlVideoExport({source}:Props){
       const dismissed=error instanceof Error&&error.name==='AbortError';
       setMessage(dismissed?'File selection cancelled.':task.signal.aborted?
         'Export cancelled; no partial file saved.':error instanceof Error?error.message:'Export parity check failed.');
-      if(!receivedReport&&!dismissed)setReport(makeRenderReport(validateHtmlVideoOptions(opts),{
+      if(!receivedReport&&!dismissed)setReport(makeRenderReport({...dimensions,size,fps,duration,matte},{
         mode:saveMode==='stream'?'stream':'memory',error,phase:'prepare'
       }));
     }finally{if(abortRef.current===task)abortRef.current=null;setWorking(false);}
