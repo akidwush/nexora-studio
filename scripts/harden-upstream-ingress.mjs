@@ -158,6 +158,7 @@ once('subtitle import size guard',
 gate('AI credentials panel','function openAIPanel() {');
 gate('plaintext AI key persistence','function saveAIApiKey() {');
 all('no-localstorage-AI-key-reads',"localStorage.getItem('studiopro_ai_key_' + provider) || ''","'' /* API key storage disabled */",2);
+all('no-plaintext-AI-key-writes',"localStorage.setItem('studiopro_ai_key_' + provider, key);","__nexoraDisabled('AI key persistence disabled');",1);
 // Disable PWA service-worker registration/caching and raw demo HTML copies by
 // rewriting the small vendor build config. Vendored licensing preserved.
 const vitePath=resolve(root,'vite.config.js');
