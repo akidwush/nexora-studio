@@ -1,0 +1,37 @@
+# Temporary one-shot workflow. Removed after regenerating the committed lock.
+name: Refresh security lock after audit
+on:
+  push:
+    branches: [studio-step2-video]
+    paths: [package.json, .github/workflows/security-bootstrap.yml]
+permissions:
+  contents: write
+jobs:
+  refresh-lock:
+    if: github.ref == 'refs/heads/studio-step2-video'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+      - name: Regenerate exact lock for patched Playwright
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Verify full locked dependency tree and all security checks
+        run: |
+          node -e "const p=require('./package-lock.json').packages;if(p['node_modules/vite'].version!=='7.3.6'||p['node_modules/playwright'].version!=='1.55.1')process.exit(1)"
+          npm ci --no-fund
+          npm audit --audit-level=high
+          npm test
+          npm run build
+      - name: Commit verified lock to existing work branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'build(security): pin audited Playwright and transitive dependencies'
+            git push origin HEAD:studio-step2-video
+          fi
