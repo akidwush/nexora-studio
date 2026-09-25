@@ -52,11 +52,11 @@ export async function encodeMotionMp4(options,{signal,onProgress,onQuality,onRep
      await output.finalize();finalized=true;
      if(signal?.aborted)throw new ExportCancelled();
      stage='decode-verify';
-     measured=await verifyMp4Frames(await sink.read(),refs,opts.width,opts.height,opts.fps);
+     measured=await verifyMp4Frames(await sink.read(),refs,opts.width,opts.height,opts.fps,
+       result=>{measured.push(result);});
      if(signal?.aborted)throw new ExportCancelled();
      stage='publish';
-     const video=await sink.publish();
-     if(signal?.aborted)throw new ExportCancelled();
+     const video=await sink.publish({signal});
      onQuality?.({frames:measured,meanError:Math.max(...measured.map(s=>s.meanError)),
        severeFraction:Math.max(...measured.map(s=>s.severeFraction)),outputMode:sink.kind});
      onReport?.(makeRenderReport(plan,{mode:sink.kind,frames:measured}));
