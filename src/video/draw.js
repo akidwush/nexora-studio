@@ -1,9 +1,11 @@
 import {motionState} from './timeline.js';
+import {drawAiScene} from '../ai/render.js';
 function glowCircle(ctx,x,y,r,color,shadow){
  ctx.save();ctx.fillStyle=color;ctx.shadowBlur=shadow;ctx.shadowColor=color;
  ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
 }
-export function drawMotionFrame(ctx,{preset,time,duration,width,height}){
+export function drawMotionFrame(ctx,{preset,time,duration,width,height,scene=null}){
+ if(scene)return drawAiScene(ctx,{scene,time,duration,width,height});
  if(!ctx||!(width>0)||!(height>0))throw new Error('Invalid renderer configuration');
  const s=motionState(preset,time,duration),min=Math.min(width,height),landscape=width>=height;
  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,width,height);

@@ -1,6 +1,7 @@
 // Canvas-only preset rendering. Untrusted user HTML/JS NEVER runs here.
 import {Output,Mp4OutputFormat,BufferTarget,CanvasSource} from 'mediabunny';
 import {drawMotionFrame} from './draw.js';
+import {validateScene} from '../ai/scene.js';
 import {validateVideoOptions} from './timeline.js';
 export class ExportCancelled extends Error{
  constructor(){super('Video export cancelled');this.name='ExportCancelled';}
@@ -12,6 +13,7 @@ export async function canEncodeAvc(width=640,height=360,fps=24){
 }
 export async function encodeMotionMp4(options,{signal,onProgress}={}){
  const opts=validateVideoOptions(options);
+ const scene=options?.scene?validateScene(options.scene):null;
  if(!(await canEncodeAvc(opts.width,opts.height,opts.fps)))
    throw new Error('H.264 encoding is unavailable at this size; try Fast mode on Chrome or Edge.');
  if(signal?.aborted)throw new ExportCancelled();
@@ -26,7 +28,7 @@ export async function encodeMotionMp4(options,{signal,onProgress}={}){
    await output.start();started=true;
    for(let i=0;i<opts.frames;i++){
      if(signal?.aborted)throw new ExportCancelled();
-     const time=i/opts.fps;drawMotionFrame(ctx,{...opts,time});
+     const time=i/opts.fps;drawMotionFrame(ctx,{...opts,time,scene});
      await source.add(time,1/opts.fps,{keyFrame:i%opts.fps===0});
      if((i+1)%Math.max(1,Math.floor(opts.fps/3))===0||i===opts.frames-1)onProgress?.((i+1)/opts.frames);
      if(i%3===0)await new Promise(resolve=>setTimeout(resolve,0));
