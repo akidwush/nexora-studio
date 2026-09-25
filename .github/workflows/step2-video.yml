@@ -24,10 +24,14 @@ jobs:
         run: npm run build:full
       - name: Verify separate app assets and licenses
         run: node scripts/verify-full-build.mjs
+      - name: Verify pinned upstream public-ingress quarantine and write static audit JSON
+        run: node scripts/verify-studio-public-ingress.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium chrome
       - name: Security regression - original Studio Pro HTML code on opaque origin
         run: node tests/studio-pro-isolation.browser.mjs
+      - name: Security regression - malicious project and legacy monolithic renderer routes
+        run: node tests/studio-pro-ingress.browser.mjs
       - name: Step 1 regression browser suite
         run: npm run test:browser
       - name: Step 2 actual MP4 encode/decode + mobile checks
