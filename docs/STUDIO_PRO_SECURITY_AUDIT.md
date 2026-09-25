@@ -30,6 +30,8 @@ that every possible browser execution path is safe.
 | `vite.config.js`, `index.html:96` | PWA runtime cache held CDN JS and Google Fonts; vendor test/demo pages were copied as raw HTML and CDN Lucide was executable | Separate editor builds no PWA/workbox or copied raw demo HTML; existing SW registrations unregistered opportunistically, Lucide shipped as bundled local vendor JS; restrictive editor meta CSP inserted as defense-in-depth. Delete old service worker caches at hosting migration and add **actual HTTP response headers**. |
 | `automation/html-static/api.js`, `docs/html-in-canvas/*.html`, `_archive/*` | Additional upstream executable demos and automation helpers, not part of the modern editor's Vite entrypoint | Do not copy these into the separately published editor; test compiled artifact for missing raw demos and service worker. Audit any future exposure of these files independently. |
 
+**Additional legacy-storage containment:** old `custom_presets` and `studioPro_designTemplates` JSON is deliberately **not rehydrated or modified**; built-in presets/templates remain available, while the custom-preset/template save UI is temporarily blocked. Old custom font records are filtered by restricted CSS-safe family name and bounded base64 data-font URI, and the primary font picker checks size/name and initial font magic bytes before reading. Unsafe font records remain in storage for offline recovery but never reach privileged `<style>` elements. Previously generated custom presets/templates must wait for typed-schema migration.
+
 ## Architectural policy
 
 - Keep the existing NEXORA dashboard on its own trusted origin. Host patched
