@@ -43,6 +43,8 @@ test('all unreviewed monolithic project import and script routes are locked in m
  assert.match(patch,/__nexoraAssertSafeProject/);
  assert.match(patch,/__nexoraSafeMedia/);
  assert.match(patch,/__nexoraInspectMedia/);
+ assert.match(patch,/__nexoraSafeFontRecord/);
+ for(const name of ['loadCustomPresets','loadDesignTemplates']) assert.ok(patch.includes(name));
  assert.match(patch,/PWA service-worker/);
  assert.match(verify,/publicUntrustedImportsAuthorized:false/);
  assert.ok(!build.includes('NEXORA_PUBLIC_STUDIO_IMPORTS=true'));
