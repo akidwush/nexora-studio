@@ -111,3 +111,22 @@
 .sandbox-console-entries p[data-level=ready]{color:#9cd9bd}
 .sandbox-issue{padding:13px 17px;color:#f4b5b5;background:#44252d;font-size:12px;margin:0}
 @media(max-width:700px){.workspace-title .buttons{flex-wrap:wrap}.workspace-title .buttons button{min-width:110px}.sandbox-console-heading span{font-size:8px}}
+
+.frame-clock-controls{padding:15px 18px;background:#171426;border-top:1px solid #3a3153;display:flex;flex-direction:column;gap:13px;min-width:0}
+.frame-clock-header,.frame-clock-readout,.frame-clock-actions{display:flex;align-items:center;justify-content:space-between;gap:9px}
+.frame-clock-header strong{font-size:10px;letter-spacing:.11em;color:#dbccff}
+.frame-clock-header button{background:#32254a;border:1px solid #665086;color:#cebafb;border-radius:9px;padding:8px 10px;font-weight:800;font-size:11px}
+.frame-clock-header button.enabled{border-color:#5c9f82;color:#b6eac9;background:#203e32}
+.frame-clock-config{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.frame-clock-config label{font-size:11px;color:#b6a8d2;display:flex;flex-direction:column;gap:7px}
+.frame-clock-config select{width:100%;background:#221c35;color:#eee3ff;border:1px solid #5d4e75;border-radius:9px;padding:11px;font-size:12px}
+.frame-clock-readout{font-size:10px;letter-spacing:.04em;color:#aea0c9;flex-wrap:wrap}
+.frame-clock-readout b{color:#eee2ff;white-space:nowrap;font-variant-numeric:tabular-nums}
+.frame-clock-controls input[type=range]{width:100%;accent-color:#bda5ff;min-height:20px}
+.frame-clock-actions button{flex:1;border:1px solid #5d4c79;background:#29203e;border-radius:8px;padding:10px 5px;color:#e8ddff;font-size:11px;font-weight:800}
+.frame-clock-actions button:disabled{opacity:.35;cursor:not-allowed}
+.frame-clock-status{background:#28203e;border:1px solid #4c3f64;color:#d8c8f1;padding:10px 12px;border-radius:8px;font:11px/1.5 ui-monospace,Consolas,monospace;overflow-wrap:anywhere;margin:0}
+.frame-clock-status[data-state=ready]{border-color:#4e836f;color:#a9dfc2}
+.frame-clock-status[data-state=error]{border-color:#b5646b;color:#ffb2b8}
+.frame-clock-note{color:#9487aa;font-size:11px;line-height:1.55;margin:0}
+@media(max-width:700px){.frame-clock-controls{padding:13px}.frame-clock-header{flex-wrap:wrap}.frame-clock-config{gap:8px}.frame-clock-actions{gap:5px}.frame-clock-actions button{font-size:10px}}

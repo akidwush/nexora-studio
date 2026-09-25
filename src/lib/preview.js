@@ -1,3 +1,4 @@
+import {timelineBootstrap} from './timeline-runtime.js';
 // First-party HTML Motion Lab sandbox. The resulting srcDoc MUST be used only in
 // iframe sandbox="allow-scripts" WITHOUT allow-same-origin or other permissions.
 // CSP blocks ordinary network APIs/resources, but is not total egress/CPU isolation.
@@ -62,6 +63,7 @@ export function buildPreviewDoc(input={}){
     '<meta name="referrer" content="no-referrer">',
     '<meta http-equiv="Content-Security-Policy" content="'+PREVIEW_CSP+'">',
     diagnosticsScript(session),
+    input.controlled?timelineBootstrap(session):'',
     '<style>html,body{margin:0;min-height:100%}*{box-sizing:border-box}'+closeStyle(css)+'</style>',
     '</head><body>',
     html,

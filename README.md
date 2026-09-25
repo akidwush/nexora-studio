@@ -3,7 +3,7 @@
 Independent creative/motion tools website. NEXORA V1 and V2 remain untouched.
 
 ## Working tools
-- **HTML Motion Lab**: HTML/CSS/**SVG**/JavaScript editor with fresh opaque-origin sandbox runs, restrictive CSP, bounded display-only console, Run/Stop, four motion presets, preview ratios, and standalone HTML export. The sandbox is for previews, not arbitrary hostile-code execution. See [HTML sandbox boundaries](docs/HTML_SANDBOX.md).
+- **HTML Motion Lab**: HTML/CSS/**SVG**/JavaScript editor with opaque-origin sandbox, optional deterministic frame timeline (12/24/30/60 FPS; frame seek/rewind via replay), strict CSP, display-only console, Run/Stop, four motion presets, and standalone HTML export. HTML-to-MP4 capture is not implemented yet. The sandbox is for previews, not arbitrary hostile-code execution. See [HTML sandbox boundaries](docs/HTML_SANDBOX.md).
 - **Image to Vector Mosaic**: process PNG/JPEG/WebP locally into SVG rectangle artwork; download SVG/PNG. Not smooth contour tracing or AI image-to-code.
 - **Canvas Motion Video** (Step 2): a dedicated deterministic frame-rendered Canvas animation tool. Three built-in templates, responsive preview/timeline, 12/24/30 FPS, bounded 1–12s exports up to HD, real H.264 MP4 using MediaBunny/WebCodecs with progress/cancel. Silent video only.
 - **Studio Pro**: optional full original third-party timeline editor with MPL-2.0 attribution, built separately from pinned revision. See docs/THIRD_PARTY.md.
