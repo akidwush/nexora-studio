@@ -130,3 +130,21 @@
 .frame-clock-status[data-state=error]{border-color:#b5646b;color:#ffb2b8}
 .frame-clock-note{color:#9487aa;font-size:11px;line-height:1.55;margin:0}
 @media(max-width:700px){.frame-clock-controls{padding:13px}.frame-clock-header{flex-wrap:wrap}.frame-clock-config{gap:8px}.frame-clock-actions{gap:5px}.frame-clock-actions button{font-size:10px}}
+
+/* HTML Motion Lab: bounded independent DOM frame-capture exporter */
+.html-video-export{border-top:1px solid #44365a;background:linear-gradient(135deg,#221833,#141a2c);padding:17px;display:flex;flex-direction:column;gap:13px;min-width:0}
+.html-video-head{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
+.html-video-head strong{color:#efdcff;font-size:11px;letter-spacing:.09em}
+.html-video-head span{color:#ada0c6;font-size:9px;letter-spacing:.05em;font-weight:800}
+.html-video-settings{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.8fr) minmax(0,.8fr);gap:8px}
+.html-video-settings label{display:flex;flex-direction:column;gap:7px;min-width:0;color:#cbbcdf;font-size:10px;font-weight:800}
+.html-video-settings select{width:100%;min-width:0;color:#efe2ff;background:#29203e;border:1px solid #65517e;border-radius:8px;padding:9px 6px;font-size:11px}
+.html-video-settings select:disabled{opacity:.5}
+.html-video-actions{display:flex;gap:8px}
+.html-video-actions button{min-height:43px;flex:1}
+.html-video-actions button:disabled{opacity:.45;cursor:not-allowed}
+.html-video-export progress{width:100%;height:12px;accent-color:#b8a1ff}
+.html-video-message{min-height:26px;line-height:1.55;color:#decef7;font-size:11px;margin:0;overflow-wrap:anywhere}
+.html-video-result{max-width:100%;max-height:300px;border-radius:9px;background:#090c14}
+.html-video-limit{border-top:1px solid #42384c;padding-top:11px;margin:0;color:#9689a8;font-size:10px;line-height:1.65}
+@media(max-width:450px){.html-video-export{padding:12px}.html-video-settings{grid-template-columns:1fr 1fr}.html-video-settings label:first-child{grid-column:1/-1}}
