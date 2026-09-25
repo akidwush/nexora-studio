@@ -32,6 +32,7 @@ try{
   console.log('Video encoder diagnostics',JSON.stringify(await page.evaluate(async()=>({encoderAvailable:typeof VideoEncoder==='function',avc:typeof VideoEncoder==='function'?await VideoEncoder.isConfigSupported({codec:'avc1.42001f',width:640,height:360,bitrate:2_000_000,framerate:12}):null,badge:document.querySelector('.codec-badge')?.outerHTML}))));
   await page.locator('.codec-badge[data-supported=true]').waitFor({timeout:15000});
   const first=await page.locator('canvas[aria-label="Canvas video preview"]').screenshot();
+  assert.ok(first.byteLength>1024,'native canvas preview must paint visible content');
   await page.getByRole('button',{name:/Export MP4/}).click();
   const readyLink=page.getByRole('link',{name:/Download MP4 again/});
   await readyLink.waitFor({timeout:90000});
@@ -69,6 +70,8 @@ try{
   await readyLink.click();
   const item=await event, file=await readFile(await item.path());
   assert.equal(file.subarray(4,8).toString('ascii'),'ftyp');
+  await item.saveAs(join('artifacts','nexora-step2-real-640x360.mp4'));
+  console.log('SAMPLE: real MP4 saved to GitHub Actions artifacts');
   console.log('PASS: manual MP4 download has real ftyp header',item.suggestedFilename());
   for(const width of [360,390,412]){
     await page.setViewportSize({width,height:844});
@@ -79,6 +82,29 @@ try{
   console.log('PASS: video controls and canvas at 360 / 390 / 412');
 
   await page.setViewportSize({width:1440,height:900});
+  for(const [key,expectedWidth,expectedHeight] of [['square',720,720],['portrait',720,1280]]){
+    await page.selectOption('#video-size',key);
+    await page.locator('.codec-badge[data-supported=true]').waitFor({timeout:15000});
+    await page.getByRole('button',{name:/Export MP4/}).click();
+    const output=page.getByRole('link',{name:/Download MP4 again/});
+    await output.waitFor({timeout:90000});
+    const videoDetails=await page.evaluate(async href=>{
+      const video=document.createElement('video');video.src=href;video.preload='metadata';
+      await new Promise((resolve,reject)=>{
+        const timer=setTimeout(()=>reject(new Error('ratio encode metadata timeout')),20000);
+        video.onloadedmetadata=()=>{clearTimeout(timer);resolve();};
+        video.onerror=()=>{clearTimeout(timer);reject(new Error('ratio MP4 invalid'));};
+        video.load();
+      });
+      const details={width:video.videoWidth,height:video.videoHeight,duration:video.duration};
+      video.removeAttribute('src');video.load();
+      return details;
+    },await output.getAttribute('href'));
+    assert.equal(videoDetails.width,expectedWidth);
+    assert.equal(videoDetails.height,expectedHeight);
+    assert.ok(videoDetails.duration>.85&&videoDetails.duration<1.16);
+    console.log('PASS: MP4 dimensions and playback metadata for '+key,JSON.stringify(videoDetails));
+  }
   await page.selectOption('#video-size','portrait');
   await page.selectOption('#video-fps','30');
   await page.selectOption('#video-duration','12');
