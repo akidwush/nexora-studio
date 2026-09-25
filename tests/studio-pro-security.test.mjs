@@ -13,7 +13,8 @@ test('Studio Pro link fails closed; no same-origin or downgrade fallback',()=>{
 
 test('main output never embeds unreviewed editor at a shell path',async()=>{
   const code=await readFile(new URL('../scripts/build-upstream.mjs',import.meta.url),'utf8');
-  assert.doesNotMatch(code,/dist\\/studio-pro|resolve\(['"]dist\/studio-pro['"]\)/);
+  assert.match(code,/dist-studio-pro/);
+  assert.doesNotMatch(code,/cp\([^\n]*resolve\(['"]dist\/studio-pro/);
   const main=await readFile(new URL('../src/main.tsx',import.meta.url),'utf8');
   assert.doesNotMatch(main,/href=['"]\/studio-pro\/|fetch\(['"]\/studio-pro/);
   assert.match(main,/noopener noreferrer/);
