@@ -34,6 +34,10 @@ try{
 
   await page.getByRole('button',{name:'Motion Lab',exact:true}).click();
   await page.locator('select#motion-preset').selectOption('neon');
+  await page.getByRole('button',{name:'9:16',exact:true}).click();
+  const portrait=await page.locator('iframe[title="Sandboxed code preview"]').boundingBox();
+  assert.ok(portrait && Math.abs(portrait.width/portrait.height-9/16)<0.02,'portrait preview must preserve 9:16');
+  await page.getByRole('button',{name:'16:9',exact:true}).click();
   await page.frameLocator('iframe[title="Sandboxed code preview"]').locator('.neon-scene h1').waitFor();
   const neon=await page.frameLocator('iframe[title="Sandboxed code preview"]').locator('h1').innerText();
   assert.ok(neon.includes('THE NEXT'),'isolated preview renders preset');

@@ -137,7 +137,7 @@ function App() {
         </section>
         <section className={'panel preview-panel'+(!mobilePreview?' preview-mobile-hidden':'')}>
           <div className="panel-head"><b>PREVIEW</b><div className="ratios">{(['16:9','9:16','1:1'] as Ratio[]).map(r=><button key={r} className={r===ratio?'active':''} onClick={() => setRatio(r)}>{r}</button>)}</div></div>
-          <div className="canvas"><iframe title="Sandboxed code preview" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview} style={{aspectRatio: ratio.replace(':',' / ')}}/></div>
+          <div className="canvas"><iframe title="Sandboxed code preview" data-ratio={ratio} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={preview} style={{aspectRatio: ratio.replace(':',' / ')}}/></div>
           <p className="panel-note">Sandbox + restrictive CSP. Export is an HTML document, not a video.</p>
         </section>
       </div><div className="mobile-toggle"><button onClick={() => setMobilePreview(false)}>Edit code</button><button onClick={runPreview}>Preview ↗</button></div>
