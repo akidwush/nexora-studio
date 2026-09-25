@@ -16,10 +16,16 @@ function assertSize(width,height,clip) {
       throw new Error('HTML clip source exceeds safe limits');
   }
 }
-function hasPngSignature(bytes) {
-  if(!(bytes instanceof ArrayBuffer)||bytes.byteLength<24||bytes.byteLength>MAX_PNG_BYTES) return false;
-  const h=new Uint8Array(bytes,0,8);
-  return [137,80,78,71,13,10,26,10].every((n,i)=>h[i]===n);
+function hasPngSignature(bytes,width,height) {
+  if(!(bytes instanceof ArrayBuffer)||bytes.byteLength<33||bytes.byteLength>MAX_PNG_BYTES)return false;
+  const h=new Uint8Array(bytes,0,16);
+  if(![137,80,78,71,13,10,26,10].every((n,i)=>h[i]===n))return false;
+  const header=new DataView(bytes);
+  // Reject PNG decompression bombs before the browser's image decoder sees
+  // bytes. Valid PNG starts with a 13-byte IHDR declaring exact dimensions.
+  return header.getUint32(8)===13 &&
+    String.fromCharCode(...h.slice(12,16))==='IHDR' &&
+    header.getUint32(16)===width && header.getUint32(20)===height;
 }
 function makeSrcdoc(session,width,height) {
   const asset=new URL(html2canvasAsset,window.location.href);
@@ -130,7 +136,7 @@ export async function createIsolatedHtmlSession(clip,width,height,{container=nul
       const waiter=pending.get(data.requestId);
       if(!waiter)return;
       pending.delete(data.requestId);clearTimeout(waiter.timeout);
-      if(data.width!==width||data.height!==height||!hasPngSignature(data.bytes)){
+      if(data.width!==width||data.height!==height||!hasPngSignature(data.bytes,width,height)){
         waiter.reject(new Error('Invalid sandbox PNG response'));return;
       }
       waiter.resolve(data.bytes);
@@ -151,6 +157,7 @@ export async function createIsolatedHtmlSession(clip,width,height,{container=nul
       iframe,
       async captureFrame(timeMs=0){
         if(destroyed)throw new Error('Sandbox destroyed');
+        if(pending.size)throw new Error('Sandbox frame capture already in progress');
         if(!Number.isFinite(timeMs)||timeMs<0||timeMs>3600000)throw new Error('Invalid frame timestamp');
         const requestId=crypto.randomUUID();
         const bytes=await new Promise((resolve,reject)=>{
