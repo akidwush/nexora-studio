@@ -112,9 +112,12 @@ function installFrameCapture(){
   };
   const capture=async(width,height)=>{
     const svg=await svgDocument(width,height);
-    const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml;charset=utf-8'}));
+    // On opaque-origin sandbox frames, SVG blob: foreignObject images taint
+    // Chrome canvas and toBlob throws SecurityError. A self-contained data:
+    // SVG source remains origin-clean (verified in Chromium).
+    const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    const image=new Image();
     try{
-      const image=new Image();
       await new Promise((resolve,reject)=>{
         image.onload=resolve;
         image.onerror=()=>reject(new Error('Browser could not rasterize this HTML/SVG snapshot.'));
@@ -130,7 +133,7 @@ function installFrameCapture(){
       );
       if(blob.size>6_000_000)throw new Error('Captured frame exceeds the transfer limit.');
       return await blob.arrayBuffer();
-    }finally{URL.revokeObjectURL(url);}
+    }finally{image.src='';}
   };
   Object.defineProperty(window,'__nexoraFrameCapture',{
     value:capture,configurable:false,writable:false,enumerable:false
