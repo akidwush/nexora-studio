@@ -122,6 +122,7 @@ try{
   await page.locator('[data-testid="html-fidelity-score"]').waitFor({timeout:30000});
   const quality=await page.locator('[data-testid="html-fidelity-score"]').textContent();
   assert.match(quality,/mean RGB error/);
+  console.log('FIDELITY METRICS:',quality.trim().replace(/\s+/g,' '));
   const decoded=await page.locator('video[aria-label="Rendered HTML video playback"]').evaluate(async video=>{
     await new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>reject(Error('H264 decode timed out')),15000);

@@ -117,7 +117,7 @@ export default function HtmlVideoExport({source}:Props){
       });
       if(task.signal.aborted)return;
       const url=URL.createObjectURL(blob);videoRef.current=url;setVideoUrl(url);
-      setMessage('Export verified: same raw preview pixels and decoded H.264 visual check passed.');
+      setMessage('Export verified: bounded raw RGBA preview match and decoded H.264 visual check passed.');
       const link=document.createElement('a');link.href=url;
       link.download='nexora-html-'+size+'-'+fps+'fps.mp4';link.click();
     }catch(error){
