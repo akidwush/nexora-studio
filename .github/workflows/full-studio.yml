@@ -28,14 +28,14 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser smoke - shell, sandbox, SVG/PNG and Studio Pro assets
         run: npm run test:browser
-      - name: Upload tested preview build (no deployment)
+      - name: Upload tested dashboard ONLY preview (no deployment)
         uses: actions/upload-artifact@v4
         with:
           name: nexora-studio-step1-preview
           path: dist/
           retention-days: 7
           if-no-files-found: error
-      - name: Upload mobile and desktop smoke screenshots
+      - name: Upload isolated editor build (deploy on distinct origin only)\n        uses: actions/upload-artifact@v4\n        with:\n          name: studio-pro-dedicated-site-build\n          path: dist-studio-pro/\n          retention-days: 7\n      - name: Upload mobile and desktop smoke screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
