@@ -1,7 +1,7 @@
 // NEXORA downstream MPL-2.0 patch for the pinned Studio Pro HTML renderer.
 // User HTML/CSS/JS never runs in the editor document or a same-origin iframe.
 // The host receives UNTRUSTED PNG bytes only; messages are not auth signals.
-import html2canvasAsset from './html2canvas.min.js?url';
+import {captureBootstrap} from './nexora-frame-capture.js';
 
 const MAX_PIXELS=8_300_000;
 const MAX_PNG_BYTES=32*1024*1024;
@@ -28,15 +28,10 @@ function hasPngSignature(bytes,width,height) {
     header.getUint32(16)===width && header.getUint32(20)===height;
 }
 function makeSrcdoc(session,width,height) {
-  const asset=new URL(html2canvasAsset,window.location.href);
-  // Permit only about: child frames: html2canvas clones inside its existing
-  // opaque-origin sandbox. External and blob subframes remain blocked.
-  // The sandbox has an opaque origin even when its srcdoc references static
-  // script assets on the editor origin. No credentialed network requests or
-  // external HTML/CSS/media are required or allowed.
-  const policy="default-src 'none'; script-src 'unsafe-inline' "+asset.origin+
-    "; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'"+
-    "; frame-src about:; worker-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; media-src 'none'";
+  // Reuse NEXORA's Chrome-tested computed-style SVG snapshot capture engine
+  // *inside* the opaque iframe. No html2canvas nested frame/document access.
+  const policy="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'"+
+    "; frame-src 'none'; worker-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; media-src 'none'";
   const runtime=`
     (() => {
       'use strict';
@@ -71,16 +66,9 @@ function makeSrcdoc(session,width,height) {
           try{
             if(onFrame)await onFrame(data.timeMs);
             await frame();
-            if(typeof window.html2canvas!=='function')throw new Error('Capture library unavailable');
-            const canvas=await window.html2canvas(root,{
-              width:${width},height:${height},scale:1,backgroundColor:null,
-              useCORS:false,allowTaint:false,logging:false,imageTimeout:500,
-              removeContainer:true,windowWidth:${width},windowHeight:${height}
-            });
-            const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
-            if(!blob)throw new Error('No PNG rendered');
-            const bytes=await blob.arrayBuffer();
-            send('nx-png',{requestId:data.requestId,width:canvas.width,height:canvas.height,bytes},[bytes]);
+            if(typeof window.__nexoraFrameCapture!=='function')throw new Error('Snapshot capture bootstrap unavailable');
+            const bytes=await window.__nexoraFrameCapture(${width},${height});
+            send('nx-png',{requestId:data.requestId,width:${width},height:${height},bytes},[bytes]);
           }catch(error){
             console.error('[NEXORA isolated frame capture]',String(error?.message||error).slice(0,160));
             send('nx-error',{requestId:data.requestId,message:'Sandbox frame capture failed'});
@@ -96,7 +84,7 @@ function makeSrcdoc(session,width,height) {
     '<meta http-equiv="Content-Security-Policy" content="'+policy+'">'+
     '<style>html,body{width:100%;height:100%;margin:0;overflow:hidden}#nx-root{width:'+width+'px;height:'+height+'px;overflow:hidden}</style>'+
     '<style id="nx-user-css"></style>'+
-    '<script src="'+asset.href+'"></script></head><body>'+
+    captureBootstrap()+'</head><body>'+
     '<div id="nx-root"></div><script>'+runtime+'</script></body></html>';
 }
 export async function createIsolatedHtmlSession(clip,width,height,{container=null}={}) {
