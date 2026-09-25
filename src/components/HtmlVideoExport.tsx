@@ -9,7 +9,7 @@ type Props={source:Source};
 type RawPreview={key:string;index:number;png:Blob};
 type FrameScore={frame:number;meanError:number;severeFraction:number};
 type Quality={meanError:number;severeFraction:number;frames:FrameScore[];outputMode:string};
-type Report={schema:string;result:{status:string;code?:string;message?:string};frameResults:FrameScore[];[key:string]:unknown};
+type Report=ReturnType<typeof makeRenderReport>;
 export default function HtmlVideoExport({source}:Props){
   const [size,setSize]=useState<Size>('compact');
   const [fps,setFps]=useState(30);
@@ -146,14 +146,14 @@ export default function HtmlVideoExport({source}:Props){
         'Export cancelled; no partial file saved.':error instanceof Error?error.message:'Export parity check failed.');
       if(!receivedReport&&!dismissed)setReport(makeRenderReport(validateHtmlVideoOptions(opts),{
         mode:saveMode==='stream'?'stream':'memory',error,phase:'prepare'
-      }) as Report);
+      }));
     }finally{if(abortRef.current===task)abortRef.current=null;setWorking(false);}
   };
   const transparentDownload=alphaUrl&&validPreview;
   const downloadReport=()=>{
     if(!report)return;
     const safe=includeSource?{...report,source:{...source},
-      reproduction:{...report.reproduction as object,note:'Includes user source by explicit local-download consent. Review secrets before sharing.'}}:report;
+      reproduction:{...report.reproduction,note:'Includes user source by explicit local-download consent. Review secrets before sharing.'}}:report;
     const url=URL.createObjectURL(new Blob([JSON.stringify(safe,null,2)],{type:'application/json'}));
     const a=document.createElement('a');a.href=url;a.download='nexora-render-fidelity-report.json';a.click();
     window.setTimeout(()=>URL.revokeObjectURL(url),3000);
