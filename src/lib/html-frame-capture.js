@@ -59,13 +59,13 @@ function installFrameCapture(){
         const css=rule.cssText;
         const src=rule.style.getPropertyValue('src');
         // Only data-embedded fonts are permitted in our no-network sandbox.
-        if(!/url\\(\\s*["']?data:font\\//i.test(src)&&
-           !/url\\(\\s*["']?data:application\\/(?:font|x-font|octet-stream)/i.test(src))
+        if(!/url\(\s*["']?data:font\//i.test(src)&&
+           !/url\(\s*["']?data:application\/(?:font|x-font|octet-stream)/i.test(src))
           throw new Error('Custom fonts must be embedded as data: font URLs for video capture.');
         output.push(css);
       }
     }
-    return output.join('\\n');
+    return output.join('\n');
   };
   const svgDocument=async(width,height)=>{
     if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||
