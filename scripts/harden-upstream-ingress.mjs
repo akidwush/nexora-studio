@@ -122,7 +122,7 @@ once('WAAPI overlay never invokes old iframe pipeline','if (!c._isWaaapi) return
 once('persistent-local-project-validation',"function applyProject(data) {","function applyProject(data) {\n            __nexoraAssertSafeProject(data);");
 // Replace remaining privileged script compilers even within unreachable
 // branches, so a future refactor cannot quietly re-enable them.
-once('HIC parent compiler',"try { _hr._onFrame = new Function('time', clip.js + '\\n;return typeof onFrame === \"function\" ? onFrame : null;')(); }","throw new Error('HIC parent compiler disabled by NEXORA');");
+once('HIC parent compiler',"try { _hr._onFrame = new Function('time', clip.js + '\\n;return typeof onFrame === \"function\" ? onFrame : null;')(); }","try { throw new Error('HIC parent compiler disabled by NEXORA'); }");
 once('composition script compiler',"const scriptFn = new Function('return ' + fnStr)();","const scriptFn = () => { throw new Error('Unreviewed composition code execution denied'); };");
 const hicBootStart=html.indexOf('            const boot =\n',html.indexOf('window._updateHicEditorPreview = function() {'));
 const hicBootEnd=html.indexOf('            preview.srcdoc = ',hicBootStart);
