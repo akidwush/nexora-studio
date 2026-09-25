@@ -26,6 +26,8 @@ jobs:
         run: node scripts/verify-full-build.mjs
       - name: Verify pinned upstream public-ingress quarantine and write static audit JSON
         run: node scripts/verify-studio-public-ingress.mjs
+      - name: Record pinned upstream npm security advisories (public imports remain disabled)
+        run: node scripts/report-studio-upstream-dependencies.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium chrome
       - name: Security regression - original Studio Pro HTML code on opaque origin
