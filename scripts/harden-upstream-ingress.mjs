@@ -94,6 +94,19 @@ async function __nexoraInspectMedia(file,kind) {
     default:return false;
   }
 }
+function __nexoraSafeFontRecord(font) {
+  if (!font || typeof font.name!=='string' || typeof font.dataUri!=='string' ||
+      font.dataUri.length>3600000 || !/^[a-z0-9 ._-]{1,60}$/i.test(font.name)) return false;
+  const comma=font.dataUri.indexOf(',');
+  if (comma<0) return false;
+  const prefix=font.dataUri.slice(0,comma+1).toLowerCase();
+  const valid=['data:font/woff;base64,','data:font/woff2;base64,',
+    'data:font/ttf;base64,','data:font/otf;base64,',
+    'data:application/font-woff;base64,','data:application/font-woff2;base64,',
+    'data:application/x-font-ttf;base64,','data:application/x-font-otf;base64,',
+    'data:application/octet-stream;base64,'];
+  return valid.includes(prefix) && /^[a-z0-9+/=]+$/i.test(font.dataUri.slice(comma+1));
+}
 function __nexoraAssertSafeProject(data) {
   if (!data || typeof data!=='object' || !Array.isArray(data.clips) ||
       !Array.isArray(data.tracks) || data.clips.length>220 || data.tracks.length>32)
@@ -234,6 +247,37 @@ once('local media picker allowlist',
  "mediaInput.addEventListener('change', async (e) => {\n            const files = [];\n            for(const file of Array.from(e.target.files)) {\n                const kind=file.type.startsWith('image/')?'image':'video';\n                if(await __nexoraInspectMedia(file,kind)) files.push(file);\n            }\n            if (!files.length) { __nexoraDisabled('Rejected media signature, type or size'); return; }");
 once('audio library import allowlist',
  "async function importAudioFilesIntoLibrary(files, group) {", "async function importAudioFilesIntoLibrary(files, group) {");
+// Previously imported custom JSON templates/presets may remain in browser
+// storage from older unsafe builds; never parse them into live rich HTML.
+once('legacy custom preset recovery quarantine',
+ "function loadCustomPresets() {",
+ "function loadCustomPresets() {\\n            return []; // old stored presets retained but quarantined until typed schema review");
+once('legacy custom preset save quarantine',
+ "function saveCustomPresets(presets) {",
+ "function saveCustomPresets(presets) {\\n            return __nexoraDisabled('Unreviewed custom preset storage');");
+once('legacy design template recovery quarantine',
+ "function loadDesignTemplates() {",
+ "function loadDesignTemplates() {\\n            return []; // old stored templates retained but not evaluated");
+once('legacy design template save quarantine',
+ "function saveDesignTemplates(list) {",
+ "function saveDesignTemplates(list) {\\n            return __nexoraDisabled('Unreviewed template storage');");
+// Imported fonts are treated as data but their old names and data URIs
+// entered a privileged editor-owned <style> without adequate validation.
+once('font CSS injection guard',
+ "function registerCustomFont(name, dataUri) {",
+ "function registerCustomFont(name, dataUri) {\\n            if(!__nexoraSafeFontRecord({name,dataUri}))return false;");
+once('stored custom font allowlist',
+ "fonts = fonts.filter(f => f && f.name && !f.name.startsWith('._'));",
+ "fonts = fonts.filter(f => f && __nexoraSafeFontRecord(f) && !f.name.startsWith('._'));");
+once('never overwrite unsafe legacy font originals',
+ "localStorage.setItem('studiopro_custom_fonts', JSON.stringify(fonts));",
+ "// Preserve the original legacy font bytes in storage for offline recovery.");
+once('async font upload validation',
+ "fontInput.addEventListener('change', (e) => {",
+ "fontInput.addEventListener('change', async (e) => {");
+once('font picker signature and name check',
+ "if (file.size > 2.5 * 1024 * 1024) {",
+ "if(!(await __nexoraInspectMedia(file,'font')) || !/^[a-z0-9 ._-]{1,55}\\.(?:woff2?|ttf|otf)$/i.test(file.name)){\\n                __nexoraDisabled('Font type, signature or filename rejected');fontInput.value='';return;\\n            }\\n            if (file.size > 2.5 * 1024 * 1024) {");
 once('audio library import files mutable',
  "const entries = [...(files || [])].map(f => {",
  "let entries = [...(files || [])].map(f => {");
