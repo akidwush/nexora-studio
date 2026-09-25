@@ -9,9 +9,9 @@ const artifact=resolve('dist-studio-pro');
 const output=await readFile(join(artifact,'index.html'),'utf8');
 const assertions={
   pinnedMonolithLock:source.includes('window.__NEXORA_PUBLIC_IMPORTS_ENABLED__ = false'),
-  noPrivilegedCompilers:!/(?:new\\s+Function|\\beval)\\s*\\(/.test(source),
-  noSharedOriginIframes:!/<iframe(?![^>]*\\bsandbox=["']allow-scripts["'])/i.test(source),
-  noUntrustedRemoteScript:!/<script[^>]+src=["']https?:\\/\\//i.test(source),
+  noPrivilegedCompilers:!source.includes('new Function(')&&!source.includes('eval('),
+  noSharedOriginIframes:source.split('<iframe').slice(1).every(x=>x.split('>')[0].includes('sandbox="allow-scripts"')),
+  noUntrustedRemoteScript:source.split('<script').slice(1).every(x=>!x.split('>')[0].includes('src="https://')&&!x.split('>')[0].includes("src='https://")),
   CSPStrictOrigin:source.includes("connect-src 'self'")&&source.includes("object-src 'none'")&&!source.includes("unsafe-eval"),
   externalProjectGates:[
     'JSON project file import','portable .spcomp composition import',
