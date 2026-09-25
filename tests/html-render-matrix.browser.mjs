@@ -65,6 +65,11 @@ try{
         js:''
       }
     ];
+    // Headless Chrome may hide the real picker. We inject the file handle
+    // directly while retaining real OPFS + StreamTarget + WritableStream IO.
+    if(!window.showSaveFilePicker)Object.defineProperty(window,'showSaveFilePicker',{
+      configurable:true,value:async()=>{throw Error('Picker not used by injected-handle test');}
+    });
     const output=[],failureReports=[];
     for(let k=0;k<fixtures.length;k++){
       const fixture=fixtures[k];
