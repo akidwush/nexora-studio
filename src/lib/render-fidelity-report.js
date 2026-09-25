@@ -12,6 +12,10 @@ export function classifyRenderError(error){
   if(/encode|mp4|webcodec/i.test(message))return 'ENCODER';
   return 'RENDER';
 }
+/**
+ * @param {Record<string, any>} plan
+ * @param {{mode?: string, frames?: Array<any>, error?: any, phase?: string, fixture?: string|null, source?: any, includeSource?: boolean}} details
+ */
 export function makeRenderReport(plan,{mode='memory',frames=[],error=null,phase='complete',fixture=null,source=null,includeSource=false}={}){
   const known=['size','width','height','fps','duration','matte'];
   const settings={};
