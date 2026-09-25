@@ -24,6 +24,10 @@ const assertions={
     source.includes('legacy WAAPI seeker')&&source.includes('legacy HIC preview'),
   localProjectSchemaCheck:source.includes('__nexoraAssertSafeProject(data);'),
   mediaLimits:source.includes('__nexoraSafeMedia(file')&&source.includes('__nexoraSafeMedia(e.file'),
+  legacySavedContentInert:source.includes('old stored presets retained but quarantined')&&
+    source.includes('old stored templates retained but not evaluated')&&
+    source.includes('__nexoraSafeFontRecord')&&
+    source.includes('Prior local project preserved but quarantined'),
   keysBlocked:!source.includes("localStorage.setItem('studiopro_ai_key_'")&&
     !source.includes("localStorage.getItem('studiopro_ai_key_'"),
   appCompiled:output.includes('window.__NEXORA_PUBLIC_IMPORTS_ENABLED__ = false'),
