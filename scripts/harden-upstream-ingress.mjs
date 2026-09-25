@@ -32,7 +32,7 @@ function gate(label,anchor){
 const guard=`
 <script id="nexora-editor-security-gates">
 "use strict";
-window.__NEXORA_PUBLIC_IMPORTS_ENABLED__ = false;
+window.__NEXORA_PUBLIC_IMPORTS_ENABLED__ = false;\nif (navigator.serviceWorker) { navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{}); }
 // This dedicated origin is intentionally treated as disposable; never give
 // the editor dashboard cookies, API secrets or credentialed CORS.
 function __nexoraDisabled(feature) {
@@ -88,7 +88,7 @@ once('no-external-lucide','<script src="https://unpkg.com/lucide@1.28.0/dist/umd
 all('remove-google-preconnect','<link rel="preconnect" href="https://fonts.googleapis.com">','<!-- external font preconnect blocked -->',1);
 all('remove-google-font-preconnect','<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>','<!-- external font preconnect blocked -->',1);
 all('opaque-runtime-iframes',"document.createElement('iframe')","__nexoraCreateOpaqueFrame()",4);
-once('main-head','<head>','<head>\n<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data: blob:; media-src \'self\' blob: data:; font-src \'self\' data:; connect-src \'self\'; frame-src \'self\' about:; child-src \'self\' about:; worker-src \'self\' blob:; object-src \'none\'; base-uri \'none\'; form-action \'none\'; navigate-to \'self\'">\n'+guard+'\n<div id="nexoraImportSafetyStatus" style="display:none" role="status"></div>');
+once('main-head','<head>','<head>\n<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data: blob:; media-src \'self\' blob: data:; font-src \'self\' data:; connect-src \'self\'; frame-src \'self\' about:; child-src \'self\' about:; worker-src \'self\' blob:; object-src \'none\'; base-uri \'none\'; form-action \'none\'; navigate-to \'self\'">\n'+guard');
 // Do not replace the iframe creator inserted in the guard: it does not have
 // to be traversed in the monolithic source; it constructs a fresh native frame.
 once('html-modal-iframe','<iframe id="htmlEditorPreview"','<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" id="htmlEditorPreview"');
