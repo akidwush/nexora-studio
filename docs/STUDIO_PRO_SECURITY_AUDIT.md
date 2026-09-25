@@ -71,10 +71,11 @@ that every possible browser execution path is safe.
    advisories; do not automatically update the upstream SHA without rerunning
    downstream patch, licensing and regression tests. Never publish raw
    `automation/`, `docs/` test renderers or `_archive/` assets.
-6. **Hosted proof:** verify DNS/TLS, real header CSP (with no unsafe eval and
+6. **Dependency evidence:** CI generates a bounded report, `artifacts/studio-pro-upstream-dependencies.json`, from a FULL `npm audit` of the pinned upstream lock. High/critical/unavailable status remains a public-release blocker; the report does not auto-upgrade third-party dependencies or pretend the quarantine build cleared advisories.
+7. **Hosted proof:** verify DNS/TLS, real header CSP (with no unsafe eval and
    tested compatibility), strict frame-ancestors, host-only cookies, no
    credentialed CORS, redirect allowlist and old PWA cache/SW invalidation.
-7. **Resource exhaustion:** a sandboxed iframe can still consume excessive CPU,
+8. **Resource exhaustion:** a sandboxed iframe can still consume excessive CPU,
    memory or disk. Use robust process isolation plus quotas and timeouts before
    letting one user's untrusted project run near another user's data.
 
