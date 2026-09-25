@@ -59,7 +59,7 @@ try{
     '#moving{position:absolute;left:24px;top:28px;width:98px;height:78px;',
     'border-radius:8px;background:rgb(246,81,33);opacity:.86;',
     'animation:move 1s linear infinite;}',
-    '@keyframes move{from{transform:translateX(0)}to{transform:translateX(280px)}}',
+    '@keyframes move{from{transform:translateX(0) rotate(0deg)}to{transform:translateX(280px) rotate(40deg)}}',
     '#title{position:absolute;left:20px;top:175px;',
     'font:800 40px system-ui;letter-spacing:2px;color:#b8dcfa}'
   ].join('');
@@ -92,7 +92,7 @@ try{
   });
   assert.equal(alpha.corner[3],0,'transparent corner must keep alpha=0');
   assert.equal(alpha.emptyBefore[3],0,'CSS keyframe should move the box off its starting position');
-  assert.ok(alpha.moving[0]>160&&alpha.moving[3]>190,'transformed block must be visible at frame 15');
+  assert.ok(alpha.moving[0]>160&&alpha.moving[3]>190,'translated + rotated CSS keyframe must be visible at frame 15');
   assert.ok(alpha.svg[2]>120&&alpha.svg[3]>200,'inline SVG must render in PNG');
   assert.ok(alpha.textPixels>450,'system font typography must be present in export snapshot');
   console.log('PASS: alpha PNG preserves transparency, keyframe transforms, SVG and typography',JSON.stringify(alpha));
@@ -148,7 +148,7 @@ try{
   assert.ok(decoded.corner[0]>=18&&decoded.corner[0]<=29);
   assert.ok(decoded.corner[1]>=49&&decoded.corner[1]<=59);
   assert.ok(decoded.corner[2]>=76&&decoded.corner[2]<=88);
-  assert.ok(decoded.moving[0]>140,'transform/keyframe visible in actual MP4');
+  assert.ok(decoded.moving[0]>140,'translation + rotation keyframes visible in actual MP4');
   assert.ok(decoded.svg[2]>90,'SVG visible in actual MP4');
   assert.ok(decoded.typography>350,'system typography visible in actual MP4');
   console.log('PASS: real decoded H.264 MP4 matches the preview matte, transform, SVG and text',JSON.stringify(decoded));
