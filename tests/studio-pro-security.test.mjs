@@ -42,6 +42,7 @@ test('all unreviewed monolithic project import and script routes are locked in m
   'false && clip.type ==='])assert.ok(patch.includes(term),term);
  assert.match(patch,/__nexoraAssertSafeProject/);
  assert.match(patch,/__nexoraSafeMedia/);
+ assert.match(patch,/__nexoraInspectMedia/);
  assert.match(patch,/PWA service-worker/);
  assert.match(verify,/publicUntrustedImportsAuthorized:false/);
  assert.ok(!build.includes('NEXORA_PUBLIC_STUDIO_IMPORTS=true'));
