@@ -5,7 +5,10 @@ import {spawn} from 'node:child_process';
 import {join} from 'node:path';
 
 const host='http://127.0.0.1:4173';
+const editorHost='http://127.0.0.1:4174';
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4173','--strictPort'],{stdio:['ignore','pipe','pipe']});
+const editorServer=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--outDir','dist-studio-pro','--host','127.0.0.1','--port','4174','--strictPort'],{stdio:['ignore','pipe','pipe']});
+let editorOutput='';editorServer.stdout.on('data',d=>{editorOutput+=String(d);});editorServer.stderr.on('data',d=>{editorOutput+=String(d);});
 let output='';
 server.stdout.on('data',d=>{output+=String(d);});
 server.stderr.on('data',d=>{output+=String(d);});
@@ -25,6 +28,7 @@ async function capture(page,filename){
 }
 try{
   await ready();
+  for(let i=0;i<45;i++){try{const r=await fetch(editorHost);if(r.ok)break;}catch{}await timeout(500);if(i===44)throw new Error('Standalone Studio Pro server did not start: '+editorOutput);}
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:1440,height:900},acceptDownloads:true});
   await page.goto(host,{waitUntil:'domcontentloaded'});
@@ -75,9 +79,12 @@ try{
   console.log('PASS: 390px mobile no horizontal overflow');
 
   const loaded=[];
-  page.on('response',r=>{if(r.url().includes('/studio-pro/assets/')&&r.ok())loaded.push(r.url());});
+  page.on('response',r=>{if(r.url().startsWith(editorHost+'/assets/')&&r.ok())loaded.push(r.url());});
   await page.setViewportSize({width:1440,height:900});
-  await page.goto(host+'/studio-pro/',{waitUntil:'load',timeout:60000});
+  const unsafeCoHost=await (await fetch(host+'/studio-pro/index.html')).text();
+  assert.ok(!unsafeCoHost.includes('<title>StudioPro'),'dashboard must never serve Studio Pro');
+  await page.goto(editorHost+'/',{waitUntil:'load',timeout:60000});
+  assert.notEqual(new URL(host).origin,new URL(editorHost).origin,'editor must run on another origin');
   const title=await page.title();
   assert.match(title,/studio/i,'upstream editor page title');
   assert.ok(loaded.length>0,'at least one compiled Studio Pro asset loaded');
@@ -86,4 +93,5 @@ try{
 }finally{
   if(browser)await browser.close();
   server.kill('SIGTERM');
+  editorServer.kill('SIGTERM');
 }
