@@ -45,12 +45,12 @@ export async function createMp4Sink({fileHandle,BufferTarget,StreamTarget,scope=
       if(file.size<256)throw Error('Incomplete streamed MP4.');
       return file;
     },
-    async publish(){
+    async publish({signal}={}){
       // Backpressure propagates from File.stream() to the destination writer.
       // No giant ArrayBuffer, and the destination is untouched until verified.
       const file=await this.read();
       const destination=await fileHandle.createWritable();
-      try{await file.stream().pipeTo(destination);}
+      try{await file.stream().pipeTo(destination,{signal});}
       catch(error){try{await destination.abort();}catch{}throw error;}
       return fileHandle.getFile();
     },
