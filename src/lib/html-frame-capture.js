@@ -67,7 +67,47 @@ function installFrameCapture(){
     }
     return output.join('\n');
   };
+  // Snapshot only after required embedded resources have decoded. Silent
+  // substitutions or broken images otherwise make preview and MP4 disagree.
+  const withDeadline=(task,label)=>Promise.race([
+    task,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error(label+' timed out.')),6000))
+  ]);
+  const validateResources=async()=>{
+    if(document.fonts){
+      const faces=[...document.fonts];
+      try{
+        await withDeadline(Promise.all(faces.map(face=>face.load())), 'Embedded font loading');
+        await withDeadline(document.fonts.ready,'Embedded font readiness');
+      }catch{throw new Error('Embedded custom font could not be decoded. Re-embed a valid data: WOFF2/TTF font.');}
+      for(const face of faces){
+        if(face.status!=='loaded')throw new Error('Embedded custom font failed to load; export stopped to prevent a fallback.');
+      }
+    }
+    const loaders=[];
+    for(const img of document.querySelectorAll('img')){
+      const src=img.getAttribute('src')||'';
+      supportedSrc(src,'Image');
+      if(!src||img.hasAttribute('srcset'))
+        throw new Error('Image is missing a self-contained data:image source (srcset is not supported).');
+      loaders.push(withDeadline(img.decode(), 'Embedded image').then(()=>{
+        if(!img.naturalWidth||!img.naturalHeight)throw new Error('Embedded image has zero dimensions.');
+      }).catch(()=>{throw new Error('Embedded image failed to decode. Replace its data:image bytes.');}));
+    }
+    for(const svgImg of document.querySelectorAll('svg image')){
+      const src=svgImg.getAttribute('href')||svgImg.getAttribute('xlink:href')||'';
+      supportedSrc(src,'SVG image');
+      if(!src)throw new Error('SVG image has no embedded data:image source.');
+      const image=new Image();
+      image.src=src;
+      loaders.push(withDeadline(image.decode(),'SVG image').catch(()=>{
+        throw new Error('Embedded SVG image failed to decode. Replace its data:image bytes.');
+      }));
+    }
+    await Promise.all(loaders);
+  };
   const svgDocument=async(width,height)=>{
+    await validateResources();
     if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||
        width*height>1_000_000)throw new Error('Unsupported snapshot dimensions.');
     if(document.querySelector('video,audio,iframe,object,embed'))
@@ -127,7 +167,7 @@ function installFrameCapture(){
     const fonts=inlineFontRules();
     if(pseudoRules.length||fonts){
       const style=document.createElement('style');
-      style.textContent=fonts+'\\n'+pseudoRules.join('\\n');
+      style.textContent=[fonts,...pseudoRules].join(String.fromCharCode(10));
       clone.insertBefore(style,clone.firstChild);
     }
     let xml=new XMLSerializer().serializeToString(clone);
