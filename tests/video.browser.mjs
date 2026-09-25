@@ -26,6 +26,12 @@ try{
   const page=await context.newPage();
   await page.goto(url,{waitUntil:'domcontentloaded'});
   await page.getByRole('button',{name:'Video Lab',exact:true}).click();
+  await page.locator('canvas[aria-label="Canvas video preview"]').waitFor({timeout:15000});
+  await page.goBack();
+  await page.locator('.hero').waitFor();
+  await page.goForward();
+  await page.locator('canvas[aria-label="Canvas video preview"]').waitFor({timeout:15000});
+  console.log('PASS: browser Back and Forward preserve the single-page Video Lab route');
   await page.selectOption('#video-size','compact');
   await page.selectOption('#video-fps','12');
   await page.selectOption('#video-duration','1');

@@ -4,7 +4,7 @@ import { buildPreviewDoc } from './lib/preview.js';
 import { pixelGridToSvg } from './lib/vector.js';
 import { MOTION_PRESETS, getMotionPreset } from './lib/presets.js';
 import { svgToPngBlob } from './lib/export.js';
-import VideoWorkspace from './video/VideoWorkspace';
+const VideoWorkspace=React.lazy(()=>import('./video/VideoWorkspace'));
 import './styles.css';
 
 type Page = 'home' | 'motion' | 'image' | 'video';
@@ -21,8 +21,13 @@ function download(name: string, value: string, type: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+function readPageFromLocation(): Page {
+  const raw=new URLSearchParams(window.location.search).get('tool');
+  return raw==='motion'||raw==='image'||raw==='video'?raw:'home';
+}
+
 function App() {
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPage] = useState<Page>(()=>readPageFromLocation());
   const [html, setHtml] = useState(DEFAULT_HTML);
   const [css, setCss] = useState(DEFAULT_CSS);
   const [js, setJs] = useState(DEFAULT_JS);
@@ -36,6 +41,12 @@ function App() {
   const [studioReady, setStudioReady] = useState(false);
   const [mobilePreview, setMobilePreview] = useState(false);
 
+  useEffect(()=>{
+    const onPop=()=>{setPage(readPageFromLocation());setMobilePreview(false);window.scrollTo(0,0);};
+    window.addEventListener('popstate',onPop);
+    return()=>window.removeEventListener('popstate',onPop);
+  },[]);
+
   useEffect(() => {
     fetch('/studio-pro/index.html', {cache: 'no-store'})
       .then(r => r.ok ? r.text() : '')
@@ -45,7 +56,14 @@ function App() {
 
   useEffect(() => () => { if (imageUrl) URL.revokeObjectURL(imageUrl); }, [imageUrl]);
 
-  function navigate(next: Page) { setPage(next); setMobilePreview(false); window.scrollTo(0,0); }
+  function navigate(next: Page) {
+    if(next===page)return;
+    const nextUrl=new URL(window.location.href);
+    if(next==='home')nextUrl.searchParams.delete('tool');
+    else nextUrl.searchParams.set('tool',next);
+    window.history.pushState({nexoraTool:next},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
+    setPage(next);setMobilePreview(false);window.scrollTo(0,0);
+  }
   function runPreview() { setPreview(buildPreviewDoc({html,css,js})); setMobilePreview(true); }
   function selectPreset(id: string) {
     const preset = getMotionPreset(id);
@@ -146,7 +164,7 @@ function App() {
       </div><div className="mobile-toggle"><button onClick={() => setMobilePreview(false)}>Edit code</button><button onClick={runPreview}>Preview ↗</button></div>
     </main>}
 
-    {page==='video' && <VideoWorkspace onBack={()=>navigate('home')} />}
+    {page==='video' && <React.Suspense fallback={<main className="container workspace" aria-live="polite">Loading local video renderer…</main>}><VideoWorkspace onBack={()=>navigate('home')} /></React.Suspense>}
 
     {page==='image' && <main className="container workspace">
       <div className="workspace-title"><div><button className="back" onClick={() => navigate('home')}>← All tools</button><h1>Image to Vector Mosaic</h1><p>Offline sampled SVG conversion. True contour tracing is planned separately.</p></div>{svg && <div className="buttons"><button className="secondary" onClick={() => download('nexora-mosaic.svg',svg,'image/svg+xml')}>↓ Download SVG</button><button className="primary" onClick={() => void downloadPng()}>↓ Download PNG</button></div>}</div>

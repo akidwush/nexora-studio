@@ -5,10 +5,15 @@ const base=resolve('dist');
 const upstream=resolve('dist/studio-pro');
 async function mustExist(file) { await access(file); }
 await mustExist(join(base,'index.html'));
+await mustExist(join(base,'licenses','MPL-2.0.txt'));
+await mustExist(join(base,'THIRD_PARTY.txt'));
 await mustExist(join(upstream,'index.html'));
 await mustExist(join(upstream,'LICENSE'));
 await mustExist(join(upstream,'NOTICE'));
 const rootHtml=await readFile(join(base,'index.html'),'utf8');
+const directLicense=await readFile(join(base,'licenses','MPL-2.0.txt'),'utf8');
+const directNotice=await readFile(join(base,'THIRD_PARTY.txt'),'utf8');
+if(!directLicense.startsWith('Mozilla Public License Version 2.0')||!directNotice.includes('MediaBunny'))throw new Error('NEXORA MediaBunny attribution missing');
 const editorHtml=await readFile(join(upstream,'index.html'),'utf8');
 const license=await readFile(join(upstream,'LICENSE'),'utf8');
 const notice=await readFile(join(upstream,'NOTICE'),'utf8');

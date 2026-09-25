@@ -13,3 +13,6 @@ Independent creative-tools application. This code never touches NEXORA V1 or V2.
 Ordinary npm run build only builds the NEXORA shell. A full Studio Pro build requires npm run studio:sync and npm run build:full. No deployment is enabled in this branch; connect hosting only after passing checks. Do not automatically redeploy NEXORA V1 or V2.
 
 Never expose NEXORA login cookies, API keys, or VVIP state to unreviewed third-party code. For authenticated releases prefer hosting the optional upstream editor on an isolated origin or perform a full security audit first.
+
+## Native Step 2 rendering
+Canvas Motion Video loads MediaBunny only when the Video Lab page is opened (route-level lazy chunk). Its presets are deterministic JavaScript Canvas drawing functions: frame = draw(preset, time, resolution), not unsafe arbitrary HTML execution. H.264 support is feature-detected; limited export options and progress/cancel protect mobile. Real MP4 output is tested for landscape, square and portrait. SPA navigation uses browser history so Android Back returns to Explore rather than unexpectedly exiting the tab. Direct MediaBunny dependency MPL-2.0 notice is copied into static artifacts.
