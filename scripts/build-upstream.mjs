@@ -10,6 +10,7 @@ function run(cmd,args,cwd=process.cwd(),env=process.env){
  if(result.status!==0)throw new Error('Failed: '+cmd+' '+args.join(' '));
 }
 run('node',['scripts/harden-upstream.mjs']);
+run('node',['scripts/harden-upstream-ingress.mjs']);
 run('npm',['ci'],root);
 // Never compile the upstream service worker or assets for a /studio-pro/
 // path: that path must not exist on the authenticated NEXORA site.
