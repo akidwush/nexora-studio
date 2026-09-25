@@ -18,7 +18,7 @@ const renderStart=renderer.indexOf('// ── Renderer ');
 const drawStart=renderer.indexOf('/**\n * Draw HTML clip to canvas context');
 if(renderStart<0||drawStart<=renderStart||!renderer.slice(renderStart,drawStart).includes('doc.write('))
   throw new Error('Upstream HTML clip renderer drift: not safe to continue');
-const isolatedRenderer=`// ── Isolated renderer; NEVER read frame.contentDocument ──────────────────
+const isolatedRenderer=`// ── Isolated renderer; NEVER read frame DOM ──────────────────
 export async function renderHtmlClip(clip,width=1920,height=1080){
   const signature=getCacheSignature(clip);
   if(isCacheValid(clip,signature))return renderCache.get(clip.id).bitmap;
