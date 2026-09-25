@@ -26,7 +26,7 @@ jobs:
         run: node scripts/verify-full-build.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium chrome
-      - name: Step 1 regression browser suite
+      - name: Security regression - original Studio Pro HTML code on opaque origin\n        run: node tests/studio-pro-isolation.browser.mjs\n      - name: Step 1 regression browser suite
         run: npm run test:browser
       - name: Step 2 actual MP4 encode/decode + mobile checks
         run: node tests/video.browser.mjs
