@@ -87,14 +87,14 @@ function makeSrcdoc(session,width,height) {
     '<meta http-equiv="Content-Security-Policy" content="'+policy+'">'+
     '<style>html,body{width:100%;height:100%;margin:0;overflow:hidden}#nx-root{width:'+width+'px;height:'+height+'px;overflow:hidden}</style>'+
     '<style id="nx-user-css"></style>'+
-    '<script src="'+asset.href+'"><\\/script></head><body>'+
-    '<div id="nx-root"></div><script>'+runtime+'<\\/script></body></html>';
+    '<script src="'+asset.href+'"></script></head><body>'+
+    '<div id="nx-root"></div><script>'+runtime+'</script></body></html>';
 }
 export async function createIsolatedHtmlSession(clip,width,height,{container=null}={}) {
   assertSize(width,height,clip);
   const session=crypto.randomUUID();
   const iframe=document.createElement('iframe');
-  iframe.setAttribute('sandbox','allow-scripts'); // NEVER allow-same-origin.
+  iframe.setAttribute('sandbox','allow-scripts'); // Opaque-origin sandbox.
   iframe.setAttribute('referrerpolicy','no-referrer');
   iframe.setAttribute('title','Isolated HTML clip');
   iframe.setAttribute('data-nx-isolated-frame','');
@@ -108,7 +108,8 @@ export async function createIsolatedHtmlSession(clip,width,height,{container=nul
   const pending=new Map();
   const ready=new Promise((resolve,reject)=>{readyResolve=resolve;readyReject=reject;});
   const init=new Promise((resolve,reject)=>{initResolve=resolve;initReject=reject;});
-  const timeout=setTimeout(()=>{readyReject(new Error('Sandbox boot timeout'));initReject(new Error('Sandbox init timeout'));},8000);
+  let phase='boot';
+  const timeout=setTimeout(()=>{if(phase==='boot')readyReject(new Error('Sandbox boot timeout'));else initReject(new Error('Sandbox init timeout'));},8000);
   function destroy() {
     if(destroyed)return;destroyed=true;
     clearTimeout(timeout);
@@ -139,6 +140,7 @@ export async function createIsolatedHtmlSession(clip,width,height,{container=nul
   (container||document.body).appendChild(iframe);
   try {
     await ready;
+    phase='init';
     if(destroyed)throw new Error('Sandbox destroyed');
     iframe.contentWindow.postMessage({kind:'nx-init',session,
       html:clip.html||'',css:clip.css||'',js:clip.js||'',
