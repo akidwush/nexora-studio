@@ -23,7 +23,7 @@ if(!license.startsWith('Mozilla Public License Version 2.0')||!notice.includes('
 const filenames=await readdir(join(upstream,'assets'));
 const compiled=filenames.filter(name=>name.endsWith('.js')||name.endsWith('.css'));
 if(!compiled.some(name=>name.endsWith('.js')))throw new Error('No upstream compiled JavaScript');
-const entryAssets=[...editorHtml.matchAll(/<(?:script|link)\\b[^>]*\\b(?:src|href)=[\"']([^\"']+)[\"'][^>]*>/gi)].map(match=>match[1]);
+const entryAssets=[...editorHtml.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)=[\"']([^\"']+)[\"'][^>]*>/gi)].map(match=>match[1]);
 if(entryAssets.some(url=>url.startsWith('/studio-pro/')))throw new Error('Unsafe same-origin editor asset base');
 try {await access(join(base,'studio-pro'));throw new Error('Unsafe Studio Pro present inside shell dist');} catch(error){if(error.code!=='ENOENT')throw error;}
 if(!entryAssets.some(url=>url.startsWith('/assets/')))throw new Error('Dedicated editor must use root compiled asset URLs');
