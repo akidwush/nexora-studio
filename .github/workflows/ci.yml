@@ -1,19 +1,28 @@
-name: Foundation checks
+name: Foundation & dependency security
 on:
   push:
-    branches: [studio-foundation]
+    branches: [main]
   pull_request:
     branches: [main]
+permissions:
+  contents: read
 jobs:
   checks:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --no-audit --no-fund
-      - run: npm test
-      - run: npm run build
+          cache: npm
+      - name: Install from committed lockfile
+        run: npm ci --no-fund
+      - name: Verify patched Vite and local-only development binding
+        run: |
+          npm ls vite --depth=0
+          npm test
+      - name: Reject high / critical dependency advisories
+        run: npm audit --audit-level=high
+      - name: Verify frontend production build
+        run: npm run build

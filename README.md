@@ -29,3 +29,6 @@ Requires Node 22+.
 CI builds and browser-tests these separately. No production deploy is configured. Do not co-host unreviewed upstream code with real NEXORA auth sessions.
 
 Read docs/STEP1.md, docs/STEP2.md, docs/ARCHITECTURE.md and docs/THIRD_PARTY.md.
+
+## Security hardening
+Default development binds **only to 127.0.0.1**; Vite is pinned to patched 7.3.6. The committed lockfile is required by CI (`npm ci`) with a high/critical npm audit gate. See [SECURITY.md](SECURITY.md). Do not use an internet-facing development server. Studio Pro and Gemini have separate security gates and are not production-authorized by this dependency patch.
