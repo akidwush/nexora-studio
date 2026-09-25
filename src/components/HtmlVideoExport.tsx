@@ -121,17 +121,18 @@ export default function HtmlVideoExport({source}:Props){
     try{
       const fileHandle=picker?await picker:null;
       validateHtmlVideoOptions(opts);
-      const {captureHtmlFrame,encodeHtmlVideo}=await import('../lib/html-video.js');
-      let ref=validPreview;
-      if(!ref){
-        const png=await captureHtmlFrame({...source,...opts},previewIndex,{signal:task.signal});
-        if(task.signal.aborted)return;
-        ref={key,index:previewIndex,png};
-        setRawPreview(ref);
-      }
+      const {encodeHtmlVideo}=await import('../lib/html-video.js');
+      // Only independently compare RGBA when the user explicitly prepared
+      // an exact preview. A setting change must never reuse stale 30/60 FPS
+      // references. Otherwise take the matching preview from THIS export run.
+      const ref=validPreview;
       const blob=await encodeHtmlVideo({...source,...opts},{
         signal:task.signal,fileHandle,
-        reference:{index:ref.index,png:ref.png},
+        ...(ref?{reference:{index:ref.index,png:ref.png}}:{}),
+        onFrame:({frame,png}:{frame:number;png:Blob})=>{
+          if(!ref&&frame===previewIndex&&!task.signal.aborted)
+            setRawPreview({key,index:frame,png});
+        },
         onQuality:(metric:Quality)=>setQuality(metric),
         onReport:(item:Report)=>{receivedReport=true;setReport(item);},
         onProgress:(value:number,frame:number,total:number)=>{
