@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "react-dom": "19.1.1",
+    "mediabunny": "1.50.9"
   },
   "devDependencies": {
     "@types/react": "19.1.10",

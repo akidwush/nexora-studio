@@ -1,0 +1,49 @@
+name: Step 2 - Native video renderer
+on:
+  workflow_dispatch:
+  push:
+    branches: [studio-step2-video]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  step2-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install shell
+        run: npm install --no-audit --no-fund
+      - name: Deterministic rendering unit tests
+        run: npm test
+      - name: Fetch pinned Studio Pro upstream with notices
+        run: npm run studio:sync
+      - name: Build NEXORA and upstream editor
+        run: npm run build:full
+      - name: Verify separate app assets and licenses
+        run: node scripts/verify-full-build.mjs
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Step 1 regression browser suite
+        run: npm run test:browser
+      - name: Step 2 actual MP4 encode/decode + mobile checks
+        run: node tests/video.browser.mjs
+      - name: Upload passing static build for preview, no deployment
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexora-studio-step2-static-preview
+          path: dist/
+          retention-days: 7
+      - name: Upload desktop and mobile QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexora-studio-step2-screenshots
+          path: artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

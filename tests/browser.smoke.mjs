@@ -29,7 +29,7 @@ try{
   const page=await browser.newPage({viewport:{width:1440,height:900},acceptDownloads:true});
   await page.goto(host,{waitUntil:'domcontentloaded'});
   await page.locator('.tool').first().waitFor();
-  assert.equal(await page.locator('.tool').count(),4,'four standalone tools');
+  assert.equal(await page.locator('.tool').count(),5,'four standalone tools');
   await capture(page,'landing-desktop.png');
 
   await page.getByRole('button',{name:'Motion Lab',exact:true}).click();
