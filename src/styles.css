@@ -160,3 +160,18 @@
 .html-video-actions .secondary{border:1px solid #7663a0;color:#e7d8ff;background:#3a294f;border-radius:10px;padding:10px;font-weight:800;font-size:11px}
 .html-fidelity-score{padding:11px 12px;border-radius:9px;font:11px/1.5 ui-monospace,monospace;color:#bff7d7;border:1px solid #4d9574;background:#183d2a;margin:0}
 @media(max-width:540px){.html-video-settings{grid-template-columns:repeat(2,minmax(0,1fr))}.html-video-settings label:first-child{grid-column:1/-1}.html-video-actions{flex-wrap:wrap}.html-video-actions button{min-width:120px}}
+
+/* Stage A/B: compact, mobile-first export inspection and reproducible reports. */
+.html-video-frame-scores,.video-frame-checks{display:grid;gap:6px;margin-top:8px}
+.html-video-frame-scores span,.video-frame-checks span{font-size:11px;overflow-wrap:anywhere}
+.html-video-report{display:grid;gap:10px;margin:12px 0;padding:12px;border:1px solid #65517e;border-radius:12px}
+.html-video-report label{display:flex;align-items:flex-start;gap:8px;line-height:1.5;font-size:11px;overflow-wrap:anywhere}
+.html-video-report label input{flex-shrink:0;margin-top:3px}
+.html-video-report small{color:#cbbcdf;overflow-wrap:anywhere}
+.html-video-report button{max-width:100%;white-space:normal;text-align:left}
+.video-frame-checks{padding:10px 12px;border:1px solid #65517e;border-radius:10px}
+@media(max-width:412px){
+  .html-video-report{padding:9px}
+  .html-video-settings select{font-size:11px}
+  .video-frame-checks span{font-size:10px}
+}

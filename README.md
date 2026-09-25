@@ -62,3 +62,21 @@ project assets are not supported by this safe mode. A full review of
 every other upstream extension, import format and HTML sink is still
 required before public multi-user project import or privileged auth.
 Production hosting/DNS is NOT configured by these build changes.
+
+## Stage A/B — reliability, fidelity and streaming MP4
+
+HTML Motion and built-in Canvas Video now verify **three actual decoded H.264
+frames** (first, midpoint and last) and expose per-frame scores. HTML preview
+still uses independently captured RGBA reference at the selected frame and an
+explicit matte for opaque MP4. Embedded custom data-fonts must actually load;
+undecodable embedded images fail with actionable errors instead of silently
+rendering blank. The UI provides a **local reproducible JSON report**; user
+code is only included after explicit opt-in.
+
+On supported secure browsers, optional **Streaming · save to device** writes
+MediaBunny `StreamTarget` into bounded temporary OPFS storage. Backpressure is
+respected, all decoded-frame checks run before the user destination is written,
+and `File.stream().pipeTo()` saves the verified MP4 without one giant JS buffer.
+Fallback `BufferTarget` remains available. This is not unlimited-frame RAM
+streaming; canvases/codecs still consume memory and temporary disk requires
+quota. See [Stage A/B technical QA, limitations and replay steps](docs/RENDER_RELIABILITY_STREAMING.md).

@@ -1,10 +1,15 @@
 import {useEffect,useRef,useState} from 'react';
 import {HTML_VIDEO_SIZES,validateHtmlVideoOptions} from '../lib/html-video-plan.js';
+import {supportsStreamingSave,beginMp4FilePick} from '../lib/mp4-output-sink.js';
+import {makeRenderReport} from '../lib/render-fidelity-report.js';
 
 type Size=keyof typeof HTML_VIDEO_SIZES;
 type Source={html:string;css:string;svg:string;js:string};
 type Props={source:Source};
 type RawPreview={key:string;index:number;png:Blob};
+type FrameScore={frame:number;meanError:number;severeFraction:number};
+type Quality={meanError:number;severeFraction:number;frames:FrameScore[];outputMode:string};
+type Report=ReturnType<typeof makeRenderReport>;
 export default function HtmlVideoExport({source}:Props){
   const [size,setSize]=useState<Size>('compact');
   const [fps,setFps]=useState(30);
@@ -17,7 +22,11 @@ export default function HtmlVideoExport({source}:Props){
   const [previewing,setPreviewing]=useState(false);
   const [progress,setProgress]=useState(0);
   const [message,setMessage]=useState('');
-  const [quality,setQuality]=useState<{meanError:number;severeFraction:number}|null>(null);
+  const [quality,setQuality]=useState<Quality|null>(null);
+  const [report,setReport]=useState<Report|null>(null);
+  const [includeSource,setIncludeSource]=useState(false);
+  const [saveMode,setSaveMode]=useState<'download'|'stream'>('download');
+  const [streamAvailable,setStreamAvailable]=useState(false);
   const [rawPreview,setRawPreview]=useState<RawPreview|null>(null);
   const [matteUrl,setMatteUrl]=useState('');
   const [alphaUrl,setAlphaUrl]=useState('');
@@ -32,6 +41,7 @@ export default function HtmlVideoExport({source}:Props){
   const dimensions=HTML_VIDEO_SIZES[size];
   const validPreview=rawPreview?.key===key&&rawPreview.index===previewIndex?rawPreview:null;
 
+  useEffect(()=>{setStreamAvailable(supportsStreamingSave(window));},[]);
   useEffect(()=>{
     let mounted=true;setSupport(null);
     if(typeof VideoEncoder==='undefined'){setSupport(false);return()=>{mounted=false;};}
@@ -48,13 +58,13 @@ export default function HtmlVideoExport({source}:Props){
     // A code/FPS/size change invalidates any previously captured preview and
     // exported video. Never display mismatched stale visual results.
     abortRef.current?.abort();
-    setRawPreview(null);setQuality(null);
+    setRawPreview(null);setQuality(null);setReport(null);
     if(videoRef.current){URL.revokeObjectURL(videoRef.current);videoRef.current='';}
     setVideoUrl('');
   },[key]);
   useEffect(()=>{
     if(videoRef.current){URL.revokeObjectURL(videoRef.current);videoRef.current='';}
-    setVideoUrl('');setQuality(null);
+    setVideoUrl('');setQuality(null);setReport(null);
   },[matte]);
   useEffect(()=>{
     if(!rawPreview||rawPreview.key!==key)return;
@@ -86,46 +96,75 @@ export default function HtmlVideoExport({source}:Props){
       if(task.signal.aborted)return;
       setRawPreview({key,index:previewIndex,png});
       setMessage('Export-matching frame '+previewIndex+' ready. Transparent PNG is available.');
-    }catch(error){if(!task.signal.aborted)setMessage(error instanceof Error?error.message:'Preview failed.');}
+    }catch(error){if(!task.signal.aborted){
+      setMessage(error instanceof Error?error.message:'Preview failed.');
+      setReport(makeRenderReport({...dimensions,size,fps,duration,matte},{
+        error,phase:'preview',mode:'memory'
+      }));
+    }}
     finally{if(abortRef.current===task)abortRef.current=null;setPreviewing(false);}
   };
   const exportVideo=async()=>{
     if(busy||support!==true)return;
-    setWorking(true);setProgress(0);setQuality(null);
+    const filename='nexora-html-'+size+'-'+fps+'fps.mp4';
+    // File pick MUST begin in the original button gesture, before dynamic
+    // imports, capture work or any other await (mobile browser requirement).
+    let picker:Promise<unknown>|null=null;
+    try{if(saveMode==='stream')picker=beginMp4FilePick(filename);}
+    catch(error){setMessage(error instanceof Error?error.message:'File picker unavailable.');return;}
+    setWorking(true);setProgress(0);setQuality(null);setReport(null);
     setMessage('Validating preview and preparing deterministic capture…');
     if(videoRef.current){URL.revokeObjectURL(videoRef.current);videoRef.current='';}
     setVideoUrl('');
     const task=new AbortController();abortRef.current=task;
+    let receivedReport=false;
     try{
+      const fileHandle=picker?await picker:null;
       validateHtmlVideoOptions(opts);
-      const {captureHtmlFrame,encodeHtmlVideo}=await import('../lib/html-video.js');
-      let ref=validPreview;
-      if(!ref){
-        const png=await captureHtmlFrame({...source,...opts},previewIndex,{signal:task.signal});
-        if(task.signal.aborted)return;
-        ref={key,index:previewIndex,png};
-        setRawPreview(ref);
-      }
+      const {encodeHtmlVideo}=await import('../lib/html-video.js');
+      // Only independently compare RGBA when the user explicitly prepared
+      // an exact preview. A setting change must never reuse stale 30/60 FPS
+      // references. Otherwise take the matching preview from THIS export run.
+      const ref=validPreview;
       const blob=await encodeHtmlVideo({...source,...opts},{
-        signal:task.signal,
-        reference:{index:ref.index,png:ref.png},
-        onQuality:(metric:{meanError:number;severeFraction:number})=>setQuality(metric),
+        signal:task.signal,fileHandle,
+        ...(ref?{reference:{index:ref.index,png:ref.png}}:{}),
+        onFrame:({frame,png}:{frame:number;png:Blob})=>{
+          if(!ref&&frame===previewIndex&&!task.signal.aborted)
+            setRawPreview({key,index:frame,png});
+        },
+        onQuality:(metric:Quality)=>setQuality(metric),
+        onReport:(item:Report)=>{receivedReport=true;setReport(item);},
         onProgress:(value:number,frame:number,total:number)=>{
           setProgress(value);
-          setMessage('Capturing '+frame+' / '+total+' frames · '+Math.round(value*100)+'%');
+          setMessage(frame===total?'Captures complete · verifying all 3 encoded video frames…':
+            'Capturing '+frame+' / '+total+' frames · '+Math.round(value*100)+'%');
         }
       });
-      if(task.signal.aborted)return;
+      if(task.signal.aborted&&!fileHandle)return;
       const url=URL.createObjectURL(blob);videoRef.current=url;setVideoUrl(url);
-      setMessage('Export verified: bounded raw RGBA preview match and decoded H.264 visual check passed.');
-      const link=document.createElement('a');link.href=url;
-      link.download='nexora-html-'+size+'-'+fps+'fps.mp4';link.click();
+      setMessage(fileHandle?
+        'Streaming save complete: first, middle and last frames verified before file commit.':
+        'Export verified: first, middle and last decoded H.264 frames match the preview.');
+      if(!fileHandle){const link=document.createElement('a');link.href=url;link.download=filename;link.click();}
     }catch(error){
-      setMessage(task.signal.aborted?'Export cancelled; no partial file saved.':
-        error instanceof Error?error.message:'Export parity check failed.');
+      const dismissed=error instanceof Error&&error.name==='AbortError';
+      setMessage(dismissed?'File selection cancelled.':task.signal.aborted?
+        'Export cancelled; no partial file saved.':error instanceof Error?error.message:'Export parity check failed.');
+      if(!receivedReport&&!dismissed)setReport(makeRenderReport({...dimensions,size,fps,duration,matte},{
+        mode:saveMode==='stream'?'stream':'memory',error,phase:'prepare'
+      }));
     }finally{if(abortRef.current===task)abortRef.current=null;setWorking(false);}
   };
   const transparentDownload=alphaUrl&&validPreview;
+  const downloadReport=()=>{
+    if(!report)return;
+    const safe=includeSource?{...report,source:{...source},
+      reproduction:{...report.reproduction,note:'Includes user source by explicit local-download consent. Review secrets before sharing.'}}:report;
+    const url=URL.createObjectURL(new Blob([JSON.stringify(safe,null,2)],{type:'application/json'}));
+    const a=document.createElement('a');a.href=url;a.download='nexora-render-fidelity-report.json';a.click();
+    window.setTimeout(()=>URL.revokeObjectURL(url),3000);
+  };
   return <section className="html-video-export" aria-label="HTML to MP4 exporter">
     <div className="html-video-head">
       <strong>HTML → MATCHING MP4</strong><span>SAME CAPTURE PIPELINE</span>
@@ -156,6 +195,13 @@ export default function HtmlVideoExport({source}:Props){
       <label htmlFor="html-video-matte">MP4 background
         <input id="html-video-matte" type="color" disabled={busy} value={matte}
           onChange={event=>setMatte(event.target.value.toUpperCase())}/>
+      </label>
+      <label htmlFor="html-video-storage">Storage method
+        <select id="html-video-storage" value={saveMode} disabled={busy}
+          onChange={event=>setSaveMode(event.target.value as 'download'|'stream')}>
+          <option value="download">Compatible download</option>
+          {streamAvailable&&<option value="stream">Streaming · save to device</option>}
+        </select>
       </label>
       <label htmlFor="html-video-sample">Inspect exact frame
         <select id="html-video-sample" value={sample} disabled={busy} onChange={event=>setSample(event.target.value)}>
@@ -200,16 +246,29 @@ export default function HtmlVideoExport({source}:Props){
       support===null?'Checking H.264 support…':support===false?
       'H.264 unavailable in this browser.':'Generate a matching frame preview before exporting.'
     )}</p>
-    {quality&&<p className="html-fidelity-score" data-testid="html-fidelity-score">
-      Verified preview ↔ MP4 · mean RGB error {quality.meanError.toFixed(2)}
+    {quality&&<div className="html-fidelity-score" data-testid="html-fidelity-score">
+      Verified 3-frame preview ↔ MP4 · worst mean RGB error {quality.meanError.toFixed(2)}
       {' · '}large-error pixels {(quality.severeFraction*100).toFixed(2)}%
-    </p>}
+      <div className="html-video-frame-scores">{quality.frames.map(item=><span key={item.frame}>
+        Frame {item.frame}: RGB {item.meanError.toFixed(2)}, severe {(item.severeFraction*100).toFixed(2)}%
+      </span>)}</div>
+    </div>}
+    {report&&<div className="html-video-report">
+      <label><input type="checkbox" checked={includeSource}
+        onChange={event=>setIncludeSource(event.target.checked)}/>
+        Include HTML/CSS/SVG/JS in downloaded report (may contain private code)
+      </label>
+      <button className="secondary" onClick={downloadReport}>↓ Download reproducible rendering report (JSON)</button>
+      <small>{report.result.status==='PASSED'?'All inspected frames passed.':
+        'Failure recorded: '+(report.result.code||'RENDER')+'. No report data was uploaded.'}</small>
+    </div>}
     {videoUrl&&<>
       <a className="video-download" href={videoUrl}
-        download={'nexora-html-'+size+'-'+fps+'fps.mp4'}>Download verified MP4 again ↗</a>
+        download={'nexora-html-'+size+'-'+fps+'fps.mp4'}>{saveMode==='stream'?'Download an additional MP4 copy ↗':'Download verified MP4 again ↗'}</a>
       <video className="html-video-result" controls playsInline preload="metadata" src={videoUrl}
         aria-label="Rendered HTML video playback"/>
     </>}
+    <p className="html-video-limit">Streaming uses temporary device storage and only writes the selected file after parity checks. No server uploads. Compatible download is always available.</p>
     <p className="html-video-limit">Self-contained HTML/CSS/SVG/JS and system or embedded
       data-fonts only. Some advanced filters or browser-specific effects may fail parity
       checks. Maximum 3 seconds; 60 FPS at 640×360. Real-time playback speed is separate

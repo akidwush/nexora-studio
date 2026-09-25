@@ -8,7 +8,7 @@ permissions:
 jobs:
   step2-video:
     runs-on: ubuntu-latest
-    timeout-minutes: 28
+    timeout-minutes: 34
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,6 +42,8 @@ jobs:
         run: node tests/html-video.browser.mjs
       - name: Preview-export visual fidelity and transparency regression
         run: node tests/html-fidelity.browser.mjs
+      - name: Stage A+B multi-effect and OPFS streaming Chrome fidelity matrix
+        run: node tests/html-render-matrix.browser.mjs
       - name: Upload passing static build for preview, no deployment
         if: success()
         uses: actions/upload-artifact@v4

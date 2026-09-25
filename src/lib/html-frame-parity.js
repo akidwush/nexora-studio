@@ -123,3 +123,22 @@ export async function verifyMp4Frame(videoBlob,opaqueReference,w,h,frame,fps){
     video.removeAttribute('src');video.load();URL.revokeObjectURL(url);
   }
 }
+
+// Verify different timeline states rather than one flattering still frame.
+// Each comparison uses the actual decoded H.264 pixels, not encoded metadata.
+export async function verifyMp4Frames(videoBlob,references,w,h,fps,onFrame){
+  if(!Array.isArray(references)||!references.length)throw Error('No keyframe references available.');
+  const seen=new Set(),results=[];
+  for(const item of references){
+    if(!Number.isInteger(item.frame)||item.frame<0||seen.has(item.frame)||
+       !(item.png instanceof Blob))throw Error('Invalid or duplicate fidelity reference frame.');
+    seen.add(item.frame);
+    let quality;
+    try{quality=await verifyMp4Frame(videoBlob,item.png,w,h,item.frame,fps);}
+    catch(error){throw new Error('MP4 frame '+item.frame+' parity failed: '+(error instanceof Error?error.message:'decode failure'));}
+    const result={frame:item.frame,...quality};
+    results.push(result);
+    onFrame?.(result);
+  }
+  return results;
+}

@@ -2,6 +2,7 @@ import React, {useEffect,useRef,useState} from 'react';
 import {VIDEO_PRESETS,VIDEO_SIZES} from './timeline.js';
 import {drawMotionFrame} from './draw.js';
 import {encodeMotionMp4,canEncodeAvc,ExportCancelled} from './encoder.js';
+import {supportsStreamingSave,beginMp4FilePick} from '../lib/mp4-output-sink.js';
 
 type Props={onBack:()=>void};
 type SizeKey=keyof typeof VIDEO_SIZES;
@@ -21,12 +22,17 @@ export default function VideoWorkspace({onBack}:Props){
  const [status,setStatus]=useState('Choose a preset, customize the timeline, then export a genuine MP4.');
  const [downloadUrl,setDownloadUrl]=useState('');
  const [codecOk,setCodecOk]=useState<boolean|null>(null);
+ const [saveMode,setSaveMode]=useState<'download'|'stream'>('download');
+ const [canStream,setCanStream]=useState(false);
+ const [frameQuality,setFrameQuality]=useState<{frame:number;meanError:number;severeFraction:number}[]>([]);
+ const [fidelityReport,setFidelityReport]=useState<Record<string,unknown>|null>(null);
  const controller=useRef<AbortController|null>(null);
  const canvasRef=useRef<HTMLCanvasElement|null>(null);
  const playbackTime=useRef(0);
  const previewDims=VIDEO_SIZES[size];
  const previewWidth=previewDims.width>previewDims.height?480:previewDims.width===previewDims.height?370:230;
  const previewHeight=Math.round(previewWidth*previewDims.height/previewDims.width);
+ useEffect(()=>{setCanStream(supportsStreamingSave(window));},[]);
  useEffect(()=>{let alive=true;setCodecOk(null);
    canEncodeAvc(previewDims.width,previewDims.height,fps).then(value=>{if(alive)setCodecOk(value);});
    return()=>{alive=false;};
@@ -59,22 +65,32 @@ export default function VideoWorkspace({onBack}:Props){
  }
  async function exportVideo(){
    if(working)return;
-   setWorking(true);setProgress(0);setStatus('Preparing H.264 video encoder...');
+   const name='nexora-motion-'+preset+'-'+size+'.mp4';
+   let picker:Promise<unknown>|null=null;
+   try{if(saveMode==='stream')picker=beginMp4FilePick(name);}
+   catch(error){setStatus(error instanceof Error?error.message:'Streaming picker unavailable.');return;}
+   setWorking(true);setProgress(0);setFrameQuality([]);setFidelityReport(null);
+   setStatus('Preparing H.264 video encoder...');
    if(downloadUrl){URL.revokeObjectURL(downloadUrl);setDownloadUrl('');}
    const signal=new AbortController();controller.current=signal;
    try{
+     const fileHandle=picker?await picker:null;
      const output=await encodeMotionMp4({preset,size,fps,duration},{
-       signal:signal.signal,
+       fileHandle,signal:signal.signal,
+       onQuality:(result:{frames:{frame:number;meanError:number;severeFraction:number}[]})=>setFrameQuality(result.frames),
+       onReport:(report:Record<string,unknown>)=>setFidelityReport(report),
        onProgress:(value:number)=>{setProgress(value);setStatus('Encoding '+Math.round(value*100)+'% · local browser rendering');}
      });
      if(signal.signal.aborted)throw new ExportCancelled();
      const url=URL.createObjectURL(output);
      setDownloadUrl(url);
-     setStatus('MP4 ready · '+(output.size/1024/1024).toFixed(2)+' MB · silent video');
-     // Link persists for browsers which restrict programmatic downloads after async encoding.
-     downloadBlob(url,'nexora-motion-'+preset+'-'+size+'.mp4');
+     setStatus((fileHandle?'Streamed to disk after':'Downloaded after')+' 3 decoded-frame checks · '+(output.size/1024/1024).toFixed(2)+' MB');
+     // A streamed MP4 was already committed after verification. Do not initiate
+     // a second download by accident, especially on low-memory Android.
+     if(!fileHandle)downloadBlob(url,name);
    }catch(e){
-     setStatus(e instanceof ExportCancelled?'Export cancelled. No partial file saved.':e instanceof Error?e.message:'Video export failed.');
+     setStatus(e instanceof Error&&e.name==='AbortError'?'File selection cancelled.':
+       e instanceof ExportCancelled?'Export cancelled. No partial file saved.':e instanceof Error?e.message:'Video export failed.');
    }finally{if(controller.current===signal)controller.current=null;setWorking(false);}
  }
  return <main className="container workspace video-workspace">
@@ -108,11 +124,27 @@ export default function VideoWorkspace({onBack}:Props){
              </select>
            </label>
          </div>
+         <label htmlFor="video-save-mode">Save method
+           <select id="video-save-mode" disabled={working} value={saveMode}
+             onChange={e=>setSaveMode(e.target.value as 'download'|'stream')}>
+             <option value="download">Compatible download</option>
+             {canStream&&<option value="stream">Streaming · save to device</option>}
+           </select>
+         </label>
          <div className="video-plan"><span>FRAMES</span><b>{fps*duration}</b><span>CODEC</span><b>H.264 / MP4</b><span>SIZE</span><b>{previewDims.width} × {previewDims.height}</b></div>
          <button disabled={working||codecOk!==true} className="primary video-export" onClick={()=>void exportVideo()}>{working?'Encoding…':'↓ Export MP4'}</button>
          {working&&<><progress className="encode-progress" aria-label="MP4 export progress" value={progress} max={1}/><button className="cancel-export" onClick={()=>controller.current?.abort()}>Cancel export</button></>}
+         {frameQuality.length>0&&<div className="video-frame-checks">
+           {frameQuality.map(item=><span key={item.frame}>Frame {item.frame}: RGB {item.meanError.toFixed(2)} · severe {(item.severeFraction*100).toFixed(2)}%</span>)}
+         </div>}
+         {fidelityReport&&<button className="secondary" onClick={()=>{
+           const url=URL.createObjectURL(new Blob([JSON.stringify(fidelityReport,null,2)],{type:'application/json'}));
+           downloadBlob(url,'nexora-canvas-fidelity-report.json');
+           window.setTimeout(()=>URL.revokeObjectURL(url),3000);
+         }}>↓ Download rendering report</button>}
          {downloadUrl&&<a className="video-download" href={downloadUrl} download={'nexora-motion-'+preset+'-'+size+'.mp4'}>Download MP4 again ↗</a>}
          <p className="video-status" role="status" aria-live="polite">{status}</p>
+         <p className="video-disclaimer">Streaming uses temporary local disk storage and backpressure. Failed quality checks never publish the staged video.</p>
          <p className="video-disclaimer">Silent MP4, no audio track. This tool renders built-in canvas presets, not arbitrary HTML/CSS clips.</p>
        </div>
      </section>
