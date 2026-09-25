@@ -133,7 +133,9 @@ export async function verifyMp4Frames(videoBlob,references,w,h,fps,onFrame){
     if(!Number.isInteger(item.frame)||item.frame<0||seen.has(item.frame)||
        !(item.png instanceof Blob))throw Error('Invalid or duplicate fidelity reference frame.');
     seen.add(item.frame);
-    const quality=await verifyMp4Frame(videoBlob,item.png,w,h,item.frame,fps);
+    let quality;
+    try{quality=await verifyMp4Frame(videoBlob,item.png,w,h,item.frame,fps);}
+    catch(error){throw new Error('MP4 frame '+item.frame+' parity failed: '+(error instanceof Error?error.message:'decode failure'));}
     const result={frame:item.frame,...quality};
     results.push(result);
     onFrame?.(result);
