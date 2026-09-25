@@ -21,7 +21,7 @@ async function ready(){
 }
 try{
   await ready();
-  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+  browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
   const context=await browser.newContext({acceptDownloads:true,viewport:{width:1440,height:900}});
   const page=await context.newPage();
   await page.goto(url,{waitUntil:'domcontentloaded'});
@@ -29,6 +29,7 @@ try{
   await page.selectOption('#video-size','compact');
   await page.selectOption('#video-fps','12');
   await page.selectOption('#video-duration','1');
+  console.log('Video encoder diagnostics',JSON.stringify(await page.evaluate(async()=>({encoderAvailable:typeof VideoEncoder==='function',avc:typeof VideoEncoder==='function'?await VideoEncoder.isConfigSupported({codec:'avc1.42001f',width:640,height:360,bitrate:2_000_000,framerate:12}):null,badge:document.querySelector('.codec-badge')?.outerHTML}))));
   await page.locator('.codec-badge[data-supported=true]').waitFor({timeout:15000});
   const first=await page.locator('canvas[aria-label="Canvas video preview"]').screenshot();
   await page.getByRole('button',{name:/Export MP4/}).click();

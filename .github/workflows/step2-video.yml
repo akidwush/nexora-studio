@@ -27,7 +27,7 @@ jobs:
       - name: Verify separate app assets and licenses
         run: node scripts/verify-full-build.mjs
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium chrome
       - name: Step 1 regression browser suite
         run: npm run test:browser
       - name: Step 2 actual MP4 encode/decode + mobile checks
