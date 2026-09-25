@@ -62,6 +62,14 @@ try{
         new File(['<svg onload="alert(1)"/>'],'evil.svg',{type:'image/svg+xml'}),'image'),
       validPngAllowed:window.__nexoraSafeMedia(
         new File([new Uint8Array([137,80,78,71,13,10,26,10])],'sample.png',{type:'image/png'}),'image'),
+      pngMagicAllowed:await window.__nexoraInspectMedia(
+        new File([new Uint8Array([137,80,78,71,13,10,26,10])],'valid.png',{type:'image/png'}),'image'),
+      forgedPngDenied:await window.__nexoraInspectMedia(
+        new File(['<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>'],'forged.png',{type:'image/png'}),'image'),
+      forgedMp4Denied:await window.__nexoraInspectMedia(
+        new File(['<svg onload="alert(1)"/>'],'forged.mp4',{type:'video/mp4'}),'video'),
+      validWebmMagic:await window.__nexoraInspectMedia(
+        new File([new Uint8Array([26,69,223,163,0,0,0,0])],'movie.webm',{type:'video/webm'}),'video'),
       presetStorage:localStorage.getItem('custom_presets'),
       projectKeys:Object.keys(localStorage).filter(key=>key.startsWith('studiopro_project_')),
       oldProjects,executed:window.__evilProjectExecuted,
@@ -82,6 +90,10 @@ try{
     assert.equal(results[key],false,key+' must fail closed');
   }
   assert.equal(results.validPngAllowed,true);
+  assert.equal(results.pngMagicAllowed,true,'PNG signature must be recognized');
+  assert.equal(results.forgedPngDenied,false,'A forged SVG cannot be imported as a PNG');
+  assert.equal(results.forgedMp4Denied,false,'Media magic bytes must precede decode');
+  assert.equal(results.validWebmMagic,true,'Known WebM header should be accepted for further decode');
   assert.equal(results.emptyLocalProjectAllowed,true);
   assert.equal(results.executed,false);
   assert.deepEqual(results.projectKeys,results.oldProjects,'Untrusted import must not persist a new project');
