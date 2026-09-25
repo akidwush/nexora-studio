@@ -80,3 +80,17 @@ and `File.stream().pipeTo()` saves the verified MP4 without one giant JS buffer.
 Fallback `BufferTarget` remains available. This is not unlimited-frame RAM
 streaming; canvases/codecs still consume memory and temporary disk requires
 quota. See [Stage A/B technical QA, limitations and replay steps](docs/RENDER_RELIABILITY_STREAMING.md).
+
+## Studio Pro public-ingress security quarantine
+
+The pinned third-party Studio Pro monolith has additional import, dynamic-code,
+legacy iframe and CDN/PWA risks beyond the earlier three patched modules.
+Our separate-host build now **fails closed** on external project JSON,
+portable `.spcomp`, arbitrary JS composition scripts, template/preset imports,
+old monolithic HTML/HIC/WAAPI editing/drawing, and plaintext API-key storage.
+These unavailable actions must NOT be described to users as working features.
+The separate first-party HTML Motion tool and the original patched modular
+sandbox remain independent. There is no switch to enable public imports.
+Before production, see [pinned upstream audit and remaining release
+blockers](docs/STUDIO_PRO_SECURITY_AUDIT.md). We do not auto-deploy this
+quarantine PR.
