@@ -124,6 +124,49 @@ try{
     guards:results,preview,pageErrors
   },null,2));
   await page.screenshot({path:'artifacts/studio-pro-quarantined-editor.png',fullPage:true});
+  // Legacy on-device autosave must not brick the editor or execute old HTML
+  // projects. Preserve the original bytes for explicit offline export.
+  const legacyPage=await browser.newPage({viewport:{width:390,height:844}});
+  await legacyPage.addInitScript(()=>{
+    const id='00000000-0000-4000-8000-000000000001';
+    const project={app:'StudioPro',version:1,duration:60,tracks:[],clips:[
+      {id:'untrusted',type:'html',html:'<img src=x onerror="parent.__legacyExec=true">',
+        js:'parent.__legacyExec=true',title:'Legacy HTML'}
+    ]};
+    localStorage.setItem('studiopro_projects_index',JSON.stringify({version:1,
+      projects:[{id,name:'Unreviewed legacy project',savedAt:1,duration:60},
+        {id:"bad'id",name:'Malicious forged ID',savedAt:1,duration:60}]}));
+    localStorage.setItem('studiopro_project_'+id,JSON.stringify(project));
+    localStorage.setItem('studiopro_active_project',JSON.stringify({id,name:'Unreviewed legacy project'}));
+    window.__legacyExec=false;
+  });
+  await legacyPage.goto(host+'/',{waitUntil:'domcontentloaded'});
+  await legacyPage.waitForFunction(()=>{
+    const value=localStorage.getItem('studiopro_active_project');
+    if(!value)return false;
+    try{return JSON.parse(value).id!=='00000000-0000-4000-8000-000000000001';}
+    catch{return false;}
+  },null,{timeout:15000});
+  const legacy=await legacyPage.evaluate(()=>{
+    const id='00000000-0000-4000-8000-000000000001';
+    const old=JSON.parse(localStorage.getItem('studiopro_project_'+id));
+    const active=JSON.parse(localStorage.getItem('studiopro_active_project'));
+    const saved=JSON.parse(localStorage.getItem('studiopro_project_'+active.id));
+    const index=JSON.parse(localStorage.getItem('studiopro_projects_index'));
+    return {oldPreserved:old?.clips?.[0]?.type==='html',
+      safeActive:active.id!==id&&saved?.clips?.length===0,
+      legacyExecuted:window.__legacyExec,registered:index.projects.map(p=>p.id),
+      safeName:active.name};
+  });
+  assert.equal(legacy.oldPreserved,true,'Blocked historical project bytes must not be erased');
+  assert.equal(legacy.safeActive,true,'A clean workspace should open when old project is unsafe');
+  assert.equal(legacy.legacyExecuted,false,'Startup must never execute untrusted legacy HTML');
+  assert.ok(legacy.registered.includes('00000000-0000-4000-8000-000000000001'));
+  assert.equal(legacy.registered.some(id=>id.includes("'")),false,
+    'Malformed registry ID cannot flow into onclick HTML attributes');
+  await legacyPage.screenshot({path:'artifacts/studio-pro-legacy-project-recovery-mobile.png',fullPage:true});
+  await legacyPage.close();
+  console.log('PASS: legacy unsafe project preserved, malicious registry identifiers rejected, clean mobile workspace auto-recovered');
   console.log('PASS: malicious project/template/preset/script denied and HTML/HIC/WAAPI legacy routes quarantined in Chrome');
 }finally{
   if(browser)await browser.close();
