@@ -22,6 +22,8 @@ try{
   if(!ready)throw new Error('Patched Studio Pro dev preview unavailable: '+output);
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   const page=await browser.newPage();
+  page.on('pageerror',error=>console.error('SANDBOX PAGE ERROR:',error.message));
+  page.on('console',message=>{if(message.type()==='error'||/Content Security Policy|html2canvas/i.test(message.text()))console.error('SANDBOX CONSOLE:',message.type(),message.text().slice(0,500));});
   await page.goto(base+'/',{waitUntil:'domcontentloaded'});
   const result=await page.evaluate(async()=>{
     const observed=[];
