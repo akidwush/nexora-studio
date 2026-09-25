@@ -100,7 +100,7 @@ export default function HtmlVideoExport({source}:Props){
     <div className="html-video-actions">
       <button className="primary" disabled={working||support!==true}
         onClick={()=>void exportVideo()}>
-        {working?'Capturing…':'↓ Export HTML as MP4'}
+        {working?'Capturing…':'↓ Render MP4'}
       </button>
       {working&&<button className="cancel-export" onClick={()=>controller.current?.abort()}>Cancel</button>}
     </div>
