@@ -47,6 +47,8 @@ async function facts(page){
       interval:Number(body.dataset.interval||0),
       random:body.dataset.random,
       cssX:x,
+      waapiOpacity:Number(getComputedStyle(body.querySelector('#waapi')).opacity),
+      svgAnimatedX:body.querySelector('#smil-rect').x.animVal.value,
       animationPlayStates:document.getAnimations().map(animation=>animation.playState)
     };
   });
@@ -56,9 +58,11 @@ try{
   browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
   const page=await browser.newPage({viewport:{width:1440,height:900}});
   await page.goto(host+'/?tool=motion',{waitUntil:'domcontentloaded'});
-  const html='<section id="scene"><div id="box">FRAME</div><span id="raf"></span></section>';
+  const html='<section id="scene"><div id="box">FRAME</div><div id="waapi">WAAPI</div><span id="raf"></span></section>';
   const css='#scene{width:200px;min-height:100px} #box{width:100px;background:#866fe4;animation:move 2s linear infinite}@keyframes move{from{transform:translateX(0px)}to{transform:translateX(120px)}}';
+  const svg='<svg id="smil-scene" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 35"><rect id="smil-rect" x="0" y="3" width="20" height="20" fill="#9c7eec"><animate attributeName="x" from="0" to="80" dur="2s" repeatCount="indefinite" /></rect></svg>';
   const js=[
+    'document.querySelector("#waapi").animate([{opacity:0},{opacity:1}],{duration:2000,iterations:Infinity,fill:"both"});',
     'document.body.dataset.random=String(Math.random());',
     'document.body.dataset.timer="0";document.body.dataset.interval="0";',
     'setTimeout(()=>{document.body.dataset.timer="1";},250);',
@@ -69,7 +73,7 @@ try{
     '  requestAnimationFrame(update); }',
     'requestAnimationFrame(update);'
   ].join('\n');
-  for(const [tab,content] of [['HTML',html],['CSS',css],['JS',js]]){
+  for(const [tab,content] of [['HTML',html],['CSS',css],['SVG',svg],['JS',js]]){
     await page.getByRole('button',{name:tab,exact:true}).click();
     await page.getByRole('textbox',{name:tab+' code editor'}).fill(content);
   }
@@ -81,6 +85,8 @@ try{
   assert.equal(at0.raf,0);assert.equal(at0.now,1577836800000);
   assert.equal(at0.performance,0);assert.equal(at0.timer,0);assert.equal(at0.interval,0);
   assert.ok(Math.abs(at0.cssX)<1.5,'CSS animation should be at 0ms: '+at0.cssX);
+  assert.ok(Math.abs(at0.waapiOpacity)<.04,'WAAPI should be at 0ms: '+at0.waapiOpacity);
+  assert.ok(Math.abs(at0.svgAnimatedX)<1.5,'SVG SMIL should start at 0: '+at0.svgAnimatedX);
   console.log('PASS: controlled iframe starts at virtual timestamp 0, CSS and rAF frozen');
 
   await targetFrame(page,15);
@@ -90,6 +96,8 @@ try{
   assert.equal(at15.performance,500);assert.equal(at15.timer,1);assert.equal(at15.interval,1);
   assert.ok(Math.abs(at15.cssX-30)<2,'CSS transform at 500ms should be translateX(30): '+at15.cssX);
   assert.ok(at15.animationPlayStates.every(state=>state==='paused'));
+  assert.ok(Math.abs(at15.waapiOpacity-.25)<.045,'WAAPI at 500ms should be opacity .25: '+at15.waapiOpacity);
+  assert.ok(Math.abs(at15.svgAnimatedX-20)<2,'SMIL at 500ms should move to x=20: '+at15.svgAnimatedX);
   console.log('PASS: frame 15 @ 30fps produces exactly 500ms across CSS/rAF/Date/performance/timers');
 
   await targetFrame(page,30);
@@ -97,6 +105,8 @@ try{
   assert.equal(at30.clock.frame,30);assert.equal(at30.clock.ms,1000);
   assert.equal(at30.raf,1000);assert.equal(at30.timer,1);assert.equal(at30.interval,2);
   assert.ok(Math.abs(at30.cssX-60)<2,'CSS transform at 1s should be translateX(60): '+at30.cssX);
+  assert.ok(Math.abs(at30.waapiOpacity-.5)<.045,'WAAPI at 1s should be opacity .5: '+at30.waapiOpacity);
+  assert.ok(Math.abs(at30.svgAnimatedX-40)<2,'SMIL at 1s should move to x=40: '+at30.svgAnimatedX);
   console.log('PASS: frame 30 @ 30fps yields 1000ms and repeatable CSS and JS state');
 
   await targetFrame(page,15);
@@ -107,6 +117,8 @@ try{
   assert.equal(rewind.interval,at15.interval,'timer state rebuilt on rewind');
   assert.ok(Math.abs(rewind.cssX-at15.cssX)<.25,'CSS rewind must reconstruct identical frame');
   assert.equal(rewind.raf,at15.raf);
+  assert.ok(Math.abs(rewind.waapiOpacity-at15.waapiOpacity)<.025);
+  assert.ok(Math.abs(rewind.svgAnimatedX-at15.svgAnimatedX)<1);
   console.log('PASS: non-monotonic seek destroys prior sandbox and exactly replays JS state');
 
   await page.selectOption('#motion-clock-fps','60');
