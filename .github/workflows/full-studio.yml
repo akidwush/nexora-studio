@@ -26,7 +26,9 @@ jobs:
         run: node scripts/verify-full-build.mjs
       - name: Install headless Chromium for integration smoke test
         run: npx playwright install --with-deps chromium
-      - name: Security regression - patched Studio Pro iframe and parent DOM/storage\n        run: node tests/studio-pro-isolation.browser.mjs\n      - name: Browser smoke - shell, sandbox, SVG/PNG and Studio Pro assets
+      - name: Security regression - patched Studio Pro iframe and parent DOM/storage
+        run: node tests/studio-pro-isolation.browser.mjs
+      - name: Browser smoke - shell, sandbox, SVG/PNG and Studio Pro assets
         run: npm run test:browser
       - name: Upload tested dashboard ONLY preview (no deployment)
         uses: actions/upload-artifact@v4
@@ -35,7 +37,13 @@ jobs:
           path: dist/
           retention-days: 7
           if-no-files-found: error
-      - name: Upload isolated editor build (deploy on distinct origin only)\n        uses: actions/upload-artifact@v4\n        with:\n          name: studio-pro-dedicated-site-build\n          path: dist-studio-pro/\n          retention-days: 7\n      - name: Upload mobile and desktop smoke screenshots
+      - name: Upload isolated editor build (deploy on distinct origin only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-pro-dedicated-site-build
+          path: dist-studio-pro/
+          retention-days: 7
+      - name: Upload mobile and desktop smoke screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
