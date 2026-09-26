@@ -226,7 +226,7 @@ function App() {
                 const next=e.target.value;
                 // Paste the user's complete .html in the existing HTML tab and
                 // seamlessly switch to the correct ONE-FILE/ESM/WebGL engine.
-                if(codeTab==='html'&&isCompleteHtml(next)&&/<\\/html\\s*>\\s*$/i.test(next)){
+                if(codeTab==='html'&&isCompleteHtml(next)&&next.trimEnd().toLowerCase().endsWith('</html>')){
                   setDocumentSource(next);setSourceMode('document');setPreviewActive(false);
                   setPreviewIssue('Complete HTML detected. Press Run preview to render the whole document.');
                 }else{updateCode(next);setPresetId('custom');}
