@@ -4,12 +4,19 @@ import {access,cp,mkdir,rm} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 const root=resolve('vendor/studio-pro');
+// An environment toggle must never silently activate publicly shared .json,
+// .spcomp, template or arbitrary script imports on this quarantined build.
+if(['true','1'].includes(process.env.NEXORA_PUBLIC_STUDIO_IMPORTS)||
+  ['true','1'].includes(process.env.VITE_STUDIO_PRO_PUBLIC_IMPORTS))
+  throw new Error('Public untrusted Studio Pro project ingestion is NOT authorized by this audited build.');
 try{await access(resolve(root,'LICENSE'));}catch{throw new Error('First run npm run studio:sync');}
 function run(cmd,args,cwd=process.cwd(),env=process.env){
  const result=spawnSync(cmd,args,{cwd,stdio:'inherit',shell:process.platform==='win32',env});
  if(result.status!==0)throw new Error('Failed: '+cmd+' '+args.join(' '));
 }
 run('node',['scripts/harden-upstream.mjs']);
+run('node',['scripts/harden-upstream-ingress.mjs']);
+run('node',['scripts/harden-upstream-secondary-assets.mjs']);
 run('npm',['ci'],root);
 // Never compile the upstream service worker or assets for a /studio-pro/
 // path: that path must not exist on the authenticated NEXORA site.

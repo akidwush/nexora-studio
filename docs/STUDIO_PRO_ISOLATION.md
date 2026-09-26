@@ -34,6 +34,10 @@ Security and compatibility limitations:
   Server-side multi-tenant untrusted execution needs process/browser isolation
   beyond this client-side boundary.
 
+## New quarantine of the previously unreviewed monolith
+
+The expanded audit in [STUDIO_PRO_SECURITY_AUDIT.md](STUDIO_PRO_SECURITY_AUDIT.md) found additional monolithic HTML/WAAPI direct iframe DOM access, privileged HIC script compilation, arbitrary composition-script loading, JSON/template/preset imports, externally fetched assets, plaintext localStorage AI API keys, and additional demo/PWA entrypoints. A **mandatory, exact-Git-blob-locked** second patch (`scripts/harden-upstream-ingress.mjs`) now disables unreviewed monolithic HTML/HIC/WAAPI editor and import entrypoints while preserving the separately patched modular HTML renderer and first-party NEXORA HTML Motion. It restricts selected local assets, removes privileged compilers and AI key storage, and builds a static-only separate editor artifact. The security result is QUARANTINE, **NOT permission to accept untrusted public projects**. See the new report and browser test. Public-facing multi-tenant execution remains blocked until all release gates pass.
+
 ## Artifacts and hosting: enforce distinct sites
 
 `npm run build` creates `dist/` (dashboard only).
