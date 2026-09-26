@@ -16,6 +16,7 @@ function run(cmd,args,cwd=process.cwd(),env=process.env){
 }
 run('node',['scripts/harden-upstream.mjs']);
 run('node',['scripts/harden-upstream-ingress.mjs']);
+run('node',['scripts/harden-upstream-secondary-assets.mjs']);
 run('npm',['ci'],root);
 // Never compile the upstream service worker or assets for a /studio-pro/
 // path: that path must not exist on the authenticated NEXORA site.
