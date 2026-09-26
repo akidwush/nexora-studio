@@ -42,6 +42,7 @@ function App() {
   const [page, setPage] = useState<Page>(()=>readPageFromLocation());
   const [sourceMode,setSourceMode]=useState<'tabs'|'document'>('tabs');
   const [documentSource,setDocumentSource]=useState('');
+  const [documentRunSource,setDocumentRunSource]=useState<string|null>(null);
   const [html, setHtml] = useState(DEFAULT_HTML);
   const [css, setCss] = useState(DEFAULT_CSS);
   const [js, setJs] = useState(DEFAULT_JS);
@@ -84,6 +85,7 @@ function App() {
   function runPreview() {
     try{
       const next=createSandboxSnapshot(selectedScene(),clockEnabled);
+      if(sourceMode==='document')setDocumentRunSource(documentSource);
       setClockFrame(0);setClockStatus(null);
       setPreview(next);setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
     }catch(error){setPreviewActive(false);setMobilePreview(true);setPreviewIssue(error instanceof Error?error.message:'Preview could not start.');}
@@ -91,6 +93,7 @@ function App() {
   function enableClock(enabled:boolean){
     try{
       const next=createSandboxSnapshot(selectedScene(),enabled);
+      if(sourceMode==='document')setDocumentRunSource(documentSource);
       setClockEnabled(enabled);setClockFrame(0);setClockStatus(null);
       setPreview(next);setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'Timeline initialization failed.');}
@@ -99,7 +102,10 @@ function App() {
     try{
       const snapshot=createSandboxSnapshot(selectedScene(),clockEnabled);
       setClockFps(next);setClockFrame(0);setClockStatus(null);
-      if(clockEnabled){setPreview(snapshot);setPreviewActive(true);}
+      if(clockEnabled){
+        if(sourceMode==='document')setDocumentRunSource(documentSource);
+        setPreview(snapshot);setPreviewActive(true);
+      }
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'Timeline reconfiguration failed.');}
   }
   function exportHtml(){
@@ -254,7 +260,8 @@ function App() {
           <div className="panel-head"><b>PREVIEW</b><div className="ratios">{(['16:9','9:16','1:1'] as Ratio[]).map(r=><button key={r} className={r===ratio?'active':''} onClick={() => setRatio(r)}>{r}</button>)}</div></div>
           <HtmlSandbox preview={preview} active={previewActive} ratio={ratio}
             timeline={{enabled:clockEnabled,frame:clockFrame,fps:clockFps,onUpdate:setClockStatus}}/>
-          <HtmlVideoExport source={sourceMode==='document'?{document:documentSource}:{html,css,svg:svgCode,js}}/>
+          <HtmlVideoExport source={sourceMode==='document'?{document:documentSource}:{html,css,svg:svgCode,js}}
+            sourceReady={sourceMode!=='document'||(previewActive&&documentRunSource===documentSource)}/>
           <div className="frame-clock-controls">
             <div className="frame-clock-header">
               <strong>DETERMINISTIC TIMELINE</strong>
