@@ -42,7 +42,9 @@ const assertions={
     source.includes('__nexoraSafeFontRecord')&&
     source.includes('Prior local project preserved but quarantined'),
   keysBlocked:!source.includes("localStorage.setItem('studiopro_ai_key_'")&&
-    !source.includes("localStorage.getItem('studiopro_ai_key_'"),
+    !source.includes("localStorage.getItem('studiopro_ai_key_'")&&
+    source.includes("key.startsWith('studiopro_ai_key_')")&&
+    source.includes('localStorage.removeItem(key)'),
   appCompiled:output.includes('window.__NEXORA_PUBLIC_IMPORTS_ENABLED__ = false'),
   metadataAndLicensing:true
 };

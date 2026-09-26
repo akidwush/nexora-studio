@@ -23,6 +23,10 @@ try{
   const page=await browser.newPage({viewport:{width:1170,height:850}});
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(error.message.slice(0,150)));
+  await page.addInitScript(()=>{
+    if(window.top!==window)return;
+    try{localStorage.setItem('studiopro_ai_key_openai','DUMMY-TEST-ONLY-NOT-A-REAL-KEY');}catch{}
+  });
   await page.goto(host+'/',{waitUntil:'domcontentloaded'});
   const results=await page.evaluate(async()=>{
     const rejection=e=>{try{return e()}catch{return false;}};
@@ -42,6 +46,7 @@ try{
     ]}});
     const guards={
       publicFlag:window.__NEXORA_PUBLIC_IMPORTS_ENABLED__,
+      legacyCredentialsEvicted:localStorage.getItem('studiopro_ai_key_openai')===null,
       projectResult,presetsResult,
       spcompResult:rejection(()=>window.importSpcompFile()),
       scriptResult:rejection(()=>window.loadCompositionScript()),
@@ -114,6 +119,7 @@ try{
     return guards;
   });
   assert.equal(results.publicFlag,false);
+  assert.equal(results.legacyCredentialsEvicted,true,'Loaded patched editor must evict legacy plaintext AI keys');
   for(const key of ['spcompResult','scriptResult','templateResult','htmlResult','hicResult',
     'htmlEditorResult','hicEditorResult','remoteProjectDenied','scriptProjectDenied','svgMediaRejected']){
     assert.equal(results[key],false,key+' must fail closed');

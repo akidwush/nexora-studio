@@ -32,7 +32,19 @@ function gate(label,anchor){
 const guard=`
 <script id="nexora-editor-security-gates">
 "use strict";
-window.__NEXORA_PUBLIC_IMPORTS_ENABLED__ = false;\nif (navigator.serviceWorker) { navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{}); }
+window.__NEXORA_PUBLIC_IMPORTS_ENABLED__ = false;
+// Existing keys are unsafe on an editor origin with legacy rich DOM sinks.
+// Erase ONLY known plaintext AI credential keys; never read/log their values.
+try {
+  const staleKeys=Object.keys(localStorage).filter(key=>key.startsWith('studiopro_ai_key_'));
+  for(const key of staleKeys)localStorage.removeItem(key);
+  if(staleKeys.length)console.warn('[NEXORA] Cleared legacy plaintext AI keys from editor storage.');
+}catch{}
+// Old versions shipped PWA/CDN caches that can persist even after SW removal.
+// Cache eviction is best-effort; production must verify fresh isolated hosting.
+if(typeof caches!=='undefined')caches.keys().then(names=>Promise.all(
+  names.filter(name=>/^(?:workbox-|cdn-vendor|google-fonts)/.test(name)).map(name=>caches.delete(name))
+)).catch(()=>{});\nif (navigator.serviceWorker) { navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{}); }
 // This dedicated origin is intentionally treated as disposable; never give
 // the editor dashboard cookies, API secrets or credentialed CORS.
 function __nexoraDisabled(feature) {
