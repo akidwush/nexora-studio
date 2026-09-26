@@ -76,7 +76,7 @@ export function normalizePinnedThreeImportMap(map){
     if(!Object.hasOwn(CANONICAL,specifier)||!isKnownPinnedTarget(specifier,target)){
       const safeName=specifier.slice(0,65);
       const providedVersion=typeof target==='string'?
-        target.match(/three(?:\\.js)?@(\\d+\\.\\d+\\.\\d+)/)?.[1]:null;
+        target.match(/three(?:\.js)?@(\d+\.\d+\.\d+)/)?.[1]:null;
       const mismatch=providedVersion&&providedVersion!==THREE_VERSION?
         ' This HTML maps Three.js '+providedVersion+
         ', but this engine is pinned to '+THREE_VERSION+'.':'';
