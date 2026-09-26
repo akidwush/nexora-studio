@@ -4,7 +4,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdir,readFile} from 'node:fs/promises';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 
 const host='http://127.0.0.1:4195';
@@ -74,6 +74,19 @@ try{
   '--enable-webgl'
  ]});
  const page=await browser.newPage({viewport:{width:1440,height:900},acceptDownloads:true});
+ // Mimic only the platform Save dialog. Real OPFS, Mediabunny StreamTarget,
+ // Chrome canvas/WebCodecs and file.stream().pipeTo backpressure stay native.
+ // Vite preview does not expose /src/lib modules for runtime imports.
+ await page.addInitScript(()=>{
+   const bytes=[];
+   window.__androidFiveSecondDestination=bytes;
+   Object.defineProperty(window,'showSaveFilePicker',{
+     configurable:true,value:async()=>({
+       createWritable:async()=>new WritableStream({write(chunk){bytes.push(chunk);}}),
+       getFile:async()=>new Blob(bytes,{type:'video/mp4'})
+     })
+   });
+ });
  const pageErrors=[];
  page.on('pageerror',error=>pageErrors.push(error.message.slice(0,170)));
  page.on('console',message=>{if(message.type()==='error')console.log('WEBGL CONSOLE:',message.text().slice(0,260));});
@@ -105,7 +118,28 @@ try{
  assert.match(readyText,/ready/i);
  const begin=page.waitForEvent('download',{timeout:120000});
  await page.getByRole('button',{name:/Render MP4/}).click();
- const download=await begin;
+ begin.catch(()=>{}); // observed by the race, even if UI reports failure first
+ let downloadMonitorDone=false;
+ const download=await Promise.race([
+   begin,
+   (async()=>{
+     let last='';
+     for(let attempt=0;attempt<390&&!downloadMonitorDone;attempt++){
+       const status=(await page.locator('.html-video-message').textContent())||'';
+       if(status!==last){console.log('ANDROID HTML MP4 STATUS:',status);last=status;}
+       if(await page.locator('.html-render-failure-detail').count()){
+         const failure=await page.locator('.html-render-failure-detail').allTextContents();
+         throw Error('Full HTML MP4 failed before download: '+status+' '+failure.join(' '));
+       }
+       await wait(300);
+     }
+     if(!downloadMonitorDone)throw Error('Full HTML MP4 stalled, last status: '+last);
+     return null;
+   })()
+ ]);
+ downloadMonitorDone=true;
+ assert.ok(download,'A real MP4 download was required.');
+
  await mkdir('artifacts',{recursive:true});
  await download.saveAs(join('artifacts','full-document-webgl-30fps.mp4'));
  const bytes=await readFile(join('artifacts','full-document-webgl-30fps.mp4'));
@@ -123,6 +157,53 @@ try{
  await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i}).waitFor({timeout:45000});
  await page.selectOption('#html-video-duration','1');
  console.log('PASS: 5-second experimental full-document output is accepted by UI preflight.');
+
+ // Real five-second STREAMING smoke through the production UI, not source
+ // imports: Vite's production preview does NOT serve /src/lib/*.js.
+ await page.selectOption('#html-video-storage','stream');
+ await page.selectOption('#html-video-duration','5');
+ await page.getByRole('button',{name:/Match export preview/}).click();
+ await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i})
+   .waitFor({timeout:55000});
+ await page.getByRole('button',{name:/Render MP4/}).click();
+ const complete=page.locator('.html-video-message')
+   .filter({hasText:/Streaming save complete/i}).waitFor({timeout:170000});
+ complete.catch(()=>{});
+ await Promise.race([
+   complete,
+   (async()=>{
+     let previous='';
+     for(let n=0;n<550;n++){
+       const status=await page.locator('.html-video-message').textContent()||'';
+       if(status!==previous){console.log('5S STREAM UI:',status);previous=status;}
+       if(await page.locator('.html-render-failure-detail').count()){
+         const errors=await page.locator('.html-render-failure-detail').allTextContents();
+         throw Error('Real 5-second OPFS/Android MP4 failed: '+status+' '+errors.join(' '));
+       }
+       if(status.includes('Streaming save complete'))return;
+       await wait(300);
+     }
+     throw Error('Five-second OPFS stream did not complete: '+previous);
+   })()
+ ]);
+ const five=await page.evaluate(async()=>{
+   const parts=window.__androidFiveSecondDestination;
+   if(!Array.isArray(parts)||!parts.length)
+     throw Error('Streaming destination was never committed.');
+   const file=new Blob(parts,{type:'video/mp4'});
+   return {bytes:Array.from(new Uint8Array(await file.arrayBuffer()))};
+ });
+ const scores=await page.getByTestId('html-fidelity-score').textContent();
+ assert.match(scores,/Frame 0: RGB/);
+ assert.match(scores,/Frame 75: RGB/);
+ assert.match(scores,/Frame 149: RGB/);
+ assert.match(await page.locator('.html-render-compatibility').textContent(),/Fast Start/);
+  assert.ok(five.bytes.length>300);
+ assert.ok((await page.locator('.html-render-compatibility').textContent()).includes('avc1.42'));
+ await writeFile('artifacts/android-webgl-five-seconds-stream.mp4',Buffer.from(five.bytes));
+ console.log('PASS: real 5s 150-frame OPFS streaming produced verified Baseline Fast Start MP4 for ffprobe; bytes '+five.bytes.length);
+ await page.selectOption('#html-video-storage','download');
+
  // Returning to legacy four-tab mode must restore its 1–3s menu automatically.
  await page.selectOption('#html-video-duration','5');
  await page.getByRole('button',{name:'Four tabs'}).click();
