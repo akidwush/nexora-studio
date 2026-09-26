@@ -9,7 +9,7 @@ import { pixelGridToSvg } from './lib/vector.js';
 import { MOTION_PRESETS, getMotionPreset } from './lib/presets.js';
 import { svgToPngBlob } from './lib/export.js';
 import {frameTimestamp} from './lib/timeline-runtime.js';
-import {assertDocumentSource,DOCUMENT_LIMIT} from './lib/html-document.js';
+import {assertDocumentSource,isCompleteHtml,DOCUMENT_LIMIT} from './lib/html-document.js';
 const VideoWorkspace=React.lazy(()=>import('./video/VideoWorkspace'));
 const AiWorkspace=React.lazy(()=>import('./ai/AiWorkspace'));
 import './styles.css';
@@ -222,8 +222,16 @@ function App() {
               <div className="preset-bar"><label htmlFor="motion-preset">MOTION PRESET</label><select id="motion-preset" value={presetId} onChange={e=>selectPreset(e.target.value)}><option value="custom">Custom code</option>{MOTION_PRESETS.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></div>
               <div className="tabs">{(['html','css','svg','js'] as CodeKind[]).map(t=><button key={t} className={codeTab===t?'active':''} onClick={() => setCodeTab(t)}>{t.toUpperCase()}</button>)}</div>
               {codeTab==='svg'&&<div className="svg-insert"><button onClick={()=>{setSvgCode(SVG_EXAMPLE);setPresetId('custom');}}>Insert animated SVG example</button></div>}
-              <textarea spellCheck={false} maxLength={codeLimit} value={code} onChange={e => {updateCode(e.target.value);setPresetId('custom');}} aria-label={codeTab.toUpperCase()+' code editor'}/>
-              <p className="panel-note">Four-tab code runs without external resources in an opaque sandbox.</p>
+              <textarea spellCheck={false} maxLength={codeLimit} value={code} onChange={e => {
+                const next=e.target.value;
+                // Paste the user's complete .html in the existing HTML tab and
+                // seamlessly switch to the correct ONE-FILE/ESM/WebGL engine.
+                if(codeTab==='html'&&isCompleteHtml(next)&&/<\\/html\\s*>\\s*$/i.test(next)){
+                  setDocumentSource(next);setSourceMode('document');setPreviewActive(false);
+                  setPreviewIssue('Complete HTML detected. Press Run preview to render the whole document.');
+                }else{updateCode(next);setPresetId('custom');}
+              }} aria-label={codeTab.toUpperCase()+' code editor'}/>
+              <p className="panel-note">Four-tab code runs without remote resources. Pasting a complete &lt;html&gt;...&lt;/html&gt; file in the HTML tab automatically switches to the one-file renderer.</p>
             </>:
             <>
               <div className="full-doc-upload">

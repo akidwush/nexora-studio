@@ -171,6 +171,12 @@ try{
  }));
  assert.deepEqual(parent,{secret:'untouched',mutated:false,body:null,sandbox:'allow-scripts',directAccess:false});
  console.log('PASS: full-doc remote module/script denied and malicious inline JS cannot read privileged parent DOM/storage.');
+ await page.getByRole('button',{name:'Four tabs'}).click();
+ await page.getByRole('textbox',{name:'HTML code editor',exact:true}).fill(fullDocument);
+ await page.getByRole('textbox',{name:'Full HTML document code editor'}).waitFor();
+ assert.equal(await page.getByRole('textbox',{name:'Full HTML document code editor'}).inputValue(),fullDocument,
+   'Pasting a complete HTML document in the legacy HTML tab must switch automatically and preserve the exact full source.');
+ console.log('PASS: legacy HTML tab auto-detects one-file HTML and preserves full document without manual splitting.');
 
 }finally{
  if(browser)await browser.close();

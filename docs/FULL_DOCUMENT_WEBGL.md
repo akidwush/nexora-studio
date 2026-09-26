@@ -12,7 +12,9 @@ single visual preview screenshot would not produce a video.
 
 This stage introduces a **separate complete-document source mode** while
 retaining the working four-tab editor. Upload/paste the whole file; do not
-separate its HTML, CSS or script.
+separate its HTML, CSS or script. Pasting complete `<!doctype html>... </html>`
+into the existing HTML tab automatically switches into Full HTML Document
+Mode without rewriting the original editable source.
 
 ## Supported capture path
 
