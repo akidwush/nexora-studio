@@ -79,7 +79,13 @@ try{
  page.on('console',message=>{if(message.type()==='error')console.log('WEBGL CONSOLE:',message.text().slice(0,260));});
  await page.goto(host+'/?tool=motion',{waitUntil:'domcontentloaded'});
  await page.getByRole('button',{name:'Full HTML file · WebGL'}).click();
+ assert.equal(await page.getByRole('button',{name:/Render MP4/}).isDisabled(),true,
+   'Empty complete HTML must not produce an unhelpful RENDER failure report.');
+ assert.equal(await page.getByRole('button',{name:/Match export preview/}).isDisabled(),true);
+ assert.match(await page.getByTestId('full-html-export-gate').textContent(),/complete|paste|upload/i);
  await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(fullDocument);
+ assert.equal(await page.getByRole('button',{name:/Render MP4/}).isDisabled(),true,
+   'Pasting alone must not reuse an unrelated old preview.');
  await page.getByRole('button',{name:/Run preview/}).click();
  await page.locator('iframe[title="Sandboxed code preview"]').waitFor();
  const srcdoc=await page.locator('iframe[title="Sandboxed code preview"]').getAttribute('srcdoc');
@@ -91,6 +97,8 @@ try{
  await page.selectOption('#html-video-duration','1');
  await page.getByRole('button',{name:/Match export preview/}).click();
  await page.getByAltText('Exact export-matching frame').waitFor({timeout:50000});
+ assert.equal(await page.getByRole('button',{name:/Render MP4/}).isEnabled(),true,
+   'A validated and matching frame must unlock full-document MP4.');
  const readyText=(await page.locator('.html-video-message').textContent())||'';
  assert.match(readyText,/ready/i);
  const begin=page.waitForEvent('download',{timeout:120000});
@@ -158,6 +166,8 @@ try{
  });
  const badRemote='<!doctype html><html><head><script src="https://attacker.invalid/malicious.js"></script></head><body>Remote is not allowed.</body></html>';
  await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(badRemote);
+ assert.equal(await page.getByRole('button',{name:/Render MP4/}).isDisabled(),true,
+   'Changing source must revoke permission to export stale verified frames.');
  await page.getByRole('button',{name:/Run preview/}).click();
  await page.getByRole('alert').filter({hasText:/External script tags/}).waitFor();
  assert.equal(await page.locator('iframe[title="Sandboxed code preview"]').count(),0,

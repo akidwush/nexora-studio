@@ -3,6 +3,9 @@
 export const FIDELITY_REPORT_VERSION=1;
 export function classifyRenderError(error){
   const message=String(error?.message||error||'Unknown rendering failure').slice(0,360);
+  if(/complete.*html|missing.*head|invalid.*document|no .*html|source.*empty|document.*size limit/i.test(message))return 'INPUT';
+  if(/webgl|gpu|graphics context|lost context|shader|geometry|drawing buffer/i.test(message))return 'WEBGL';
+  if(/importmap|cdn|three\.js|module.*(?:load|import)|pinned.*module/i.test(message))return 'MODULE';
   if(/font/i.test(message))return 'FONT';
   if(/image|picture|svg image/i.test(message))return 'IMAGE';
   if(/network|remote|cross-origin|blob css/i.test(message))return 'EXTERNAL_RESOURCE';
@@ -38,6 +41,7 @@ export function makeRenderReport(plan,{mode='memory',frames=[],error=null,phase=
       note:includeSource?'Source is embedded only in this local download. Remove secrets before sharing.':
         'Source withheld for privacy. Use the optional Include source control to attach code.'
     },
-    ...(includeSource&&source?{source:{html:source.html||'',css:source.css||'',svg:source.svg||'',js:source.js||''}}:{})
+    ...(includeSource&&source?{source:typeof source.document==='string'?{document:source.document}:
+      {html:source.html||'',css:source.css||'',svg:source.svg||'',js:source.js||''}}:{})
   };
 }
