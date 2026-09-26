@@ -112,6 +112,64 @@ one('main-folder-reimport-budget',
 `async function runReimport(files, opts) {
             if((files?.length||0)>64)return __nexoraDisabled('Too many replacement files');
             const fromFolder = !!(opts && opts.fromFolder);`);
+// Additional conservative validation of legacy on-device state. No repair or
+// implicit deserialization of a blocked project: preserve the original bytes.
+// Since the 2.6MB upstream monolith has many rich UI sinks, reject suspicious
+// metadata rather than assuming all existing templates are XSS-safe.
+const deepGuard=String.raw\`function __nexoraPersistedDeepCheck(data) {
+  const plainId=/^[a-z0-9_-]{1,90}$/i;
+  const nameKeys=new Set(['title','name','fileName','sourceName','group','label','audioLibGroup']);
+  const idKeys=new Set(['id','trackId','sceneId','subtitleId']);
+  const urlKeys=new Set(['src','fileUrl','_srcUrl','url','textureSrc','href','poster','thumbnailSrc']);
+  const stack=[[data,0]],seen=new WeakSet();
+  let visited=0;
+  while(stack.length){
+    const [value,depth]=stack.pop();
+    if(++visited>12000||depth>14)
+      throw new Error('Stored project nesting or object count exceeds safe limits.');
+    if(typeof value==='number' && (!Number.isFinite(value)||Math.abs(value)>1e15))
+      throw new Error('Stored project contains out-of-range numeric data.');
+    if(typeof value==='string') {
+      if(value.length>1800000 || /<\\\\s*\\\\/?\\\\s*[a-z][^>]*>/i.test(value))
+        throw new Error('Stored project contains oversized or active markup content.');
+      continue;
+    }
+    if(value===null || typeof value==='boolean')continue;
+    if(typeof value!=='object')throw new Error('Unsupported persisted project value.');
+    if(seen.has(value))throw new Error('Cyclic project state is not supported.');
+    seen.add(value);
+    if(Array.isArray(value)){
+      if(value.length>1024)throw new Error('Stored project array exceeds safe budget.');
+      for(const entry of value)stack.push([entry,depth+1]);
+      continue;
+    }
+    if(Object.getPrototypeOf(value)!==Object.prototype)
+      throw new Error('Stored project object does not have a plain prototype.');
+    const entries=Object.entries(value);
+    if(entries.length>140)throw new Error('Stored project object has too many keys.');
+    for(const [key,item] of entries){
+      if(['__proto__','prototype','constructor'].includes(key)||/^on[a-z]{3,}$/i.test(key))
+        throw new Error('Stored project contains a forbidden object key.');
+      if(idKeys.has(key)&&item!=null&&(typeof item!=='string'||!plainId.test(item)))
+        throw new Error('Stored project contains an unsafe identifier: '+key);
+      if(nameKeys.has(key)&&item!=null&&(typeof item!=='string'||item.length>140||
+        /[<>"'\`]/.test(item)))
+        throw new Error('Stored project contains unsafe unescaped UI metadata: '+key);
+      if(urlKeys.has(key)&&typeof item==='string'&&
+        /^\\\\s*(?:https?:|blob:|javascript:|data:text\\\\/html|data:image\\\\/svg\\\\+xml)/i.test(item))
+        throw new Error('Stored project references untrusted remote or active media.');
+      stack.push([item,depth+1]);
+    }
+  }
+  return true;
+}\`;
+one('deep schema guard on legacy persisted project metadata',
+  'function __nexoraAssertSafeProject(data) {',
+  deepGuard+'\\nfunction __nexoraAssertSafeProject(data) {');
+one('validate nested local project before any state mutation',
+  '  for (const clip of data.clips) {',
+  '  __nexoraPersistedDeepCheck(data);\\n  for (const clip of data.clips) {');
+
 if(code.includes("window.__NEXORA_PUBLIC_IMPORTS_ENABLED__ = true"))
   throw Error('Untrusted project imports must not be enabled');
 await writeFile(path,code);
