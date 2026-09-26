@@ -6,6 +6,7 @@ import {validateHtmlVideoOptions} from './html-video-plan.js';
 import {drawOnMatte,assertExactRawFrame,makeMattePreview,verifyMp4Frames} from './html-frame-parity.js';
 import {createMp4Sink,criticalFrameIndices} from './mp4-output-sink.js';
 import {makeRenderReport} from './render-fidelity-report.js';
+import {MOBILE_AVC_CODEC,MOBILE_MP4_FORMAT,inspectAndroidMp4} from './android-mp4.js';
 export {captureHtmlFrame,HtmlExportCancelled,makeMattePreview};
 export async function encodeHtmlVideo(options,{
   signal,onProgress,onFrame,onQuality,onReport,reference,fileHandle
@@ -19,14 +20,14 @@ export async function encodeHtmlVideo(options,{
       throw new Error('WebCodecs H.264 is unavailable. Use current Chrome or Edge.');
     const bitrate=plan.width*plan.height>=900_000?7_000_000:3_000_000;
     const support=await VideoEncoder.isConfigSupported({
-      codec:'avc1.42001f',width:plan.width,height:plan.height,
+      codec:MOBILE_AVC_CODEC,width:plan.width,height:plan.height,
       bitrate,framerate:plan.fps,hardwareAcceleration:'no-preference'
     });
     if(!support.supported)throw new Error('This browser cannot encode H.264 at the selected format.');
     if(reference&&(!Number.isInteger(reference.index)||reference.index<0||
       reference.index>=plan.frames||!(reference.png instanceof Blob)))
       throw new Error('The export reference is not a valid preview frame.');
-    const {Output,Mp4OutputFormat,BufferTarget,StreamTarget,CanvasSource}=await import('mediabunny');
+    const {Output,Mp4OutputFormat,BufferTarget,StreamTarget,CanvasSource,Quality}=await import('mediabunny');
     if(signal?.aborted)throw new HtmlExportCancelled();
     const important=criticalFrameIndices(plan.frames);
     const selectedIndex=reference?.index??0;
@@ -36,11 +37,14 @@ export async function encodeHtmlVideo(options,{
       const ctx=canvas.getContext('2d',{alpha:false});
       if(!ctx)throw new Error('Canvas video encoding is unavailable.');
       const sink=await createMp4Sink({fileHandle,BufferTarget,StreamTarget});
-      const output=new Output({format:new Mp4OutputFormat(),target:sink.target});
+      const output=new Output({format:new Mp4OutputFormat(MOBILE_MP4_FORMAT),target:sink.target});
       const track=new CanvasSource(canvas,{
-        codec:'avc',bitrate,latencyMode:'quality',keyFrameInterval:1
+        codec:'avc',fullCodecString:MOBILE_AVC_CODEC,
+        quality:new Quality({bitrate}),latencyMode:'quality',keyFrameInterval:1
       });
-      output.addVideoTrack(track);
+      // Reserve exactly enough moov metadata up front without buffering all
+      // media chunks in RAM: still a regular, seekable, non-fragmented MP4.
+      output.addVideoTrack(track,{maximumPacketCount:plan.frames});
       let started=false,finalized=false;
       const captured=new Map();
       try{
@@ -75,6 +79,7 @@ export async function encodeHtmlVideo(options,{
         if(signal?.aborted)throw new HtmlExportCancelled();
         stage='decode-verify';
         const stagedVideo=await sink.read();
+        const mobile=await inspectAndroidMp4(stagedVideo,{expectedFrames:plan.frames});
         const samples=important.map(frame=>({frame,png:captured.get(frame)}));
         if(samples.some(sample=>!(sample.png instanceof Blob)))
           throw new Error('Critical-frame capture was incomplete.');
@@ -91,13 +96,19 @@ export async function encodeHtmlVideo(options,{
         // Only now touch the user's chosen file; stream with backpressure
         // from a verified temporary file instead of retaining MP4 in RAM.
         const video=await sink.publish({signal});
+        // A successful OPFS staging encode is not sufficient if the browser
+        // picker writes incomplete/truncated destination bytes.
+        const saved=await inspectAndroidMp4(video,{expectedFrames:plan.frames});
+        if(video.size!==stagedVideo.size||saved.codec!==mobile.codec)
+          throw Error('Saved MP4 did not match the verified temporary video. Try Compatible download.');
         const quality={
           meanError:Math.max(...measured.map(s=>s.meanError)),
           severeFraction:Math.max(...measured.map(s=>s.severeFraction)),
-          frames:measured,referenceMatched:Boolean(reference),outputMode:sink.kind
+          frames:measured,referenceMatched:Boolean(reference),outputMode:sink.kind,
+          compatibility:mobile
         };
         onQuality?.(quality);
-        onReport?.(makeRenderReport(plan,{mode:sink.kind,frames:measured}));
+        onReport?.(makeRenderReport(plan,{mode:sink.kind,frames:measured,compatibility:mobile}));
         return video;
       }catch(error){
         // Before finalization, cancel closes the staged writer without
