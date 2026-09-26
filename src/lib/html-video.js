@@ -37,7 +37,10 @@ export async function encodeHtmlVideo(options,{
       const ctx=canvas.getContext('2d',{alpha:false});
       if(!ctx)throw new Error('Canvas video encoding is unavailable.');
       const sink=await createMp4Sink({fileHandle,BufferTarget,StreamTarget});
-      const output=new Output({format:new Mp4OutputFormat(MOBILE_MP4_FORMAT),target:sink.target});
+      // Memory download retains Mediabunny's proven compact Fast Start path;
+      // only OPFS-backed streaming needs reserved random-access metadata.
+      const output=new Output({format:new Mp4OutputFormat(fileHandle?
+        MOBILE_MP4_FORMAT:{fastStart:'in-memory'}),target:sink.target});
       const track=new CanvasSource(canvas,{
         codec:'avc',fullCodecString:MOBILE_AVC_CODEC,
         quality:new Quality({bitrate}),latencyMode:'quality',keyFrameInterval:1
