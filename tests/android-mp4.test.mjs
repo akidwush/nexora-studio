@@ -19,8 +19,11 @@ function file({profile=0x42,level=31,frames=150,order='fast',truncate=false}={})
  const ftyp=box('ftyp',new TextEncoder().encode('isom0000mp42'));
  const avcC=box('avcC',Uint8Array.from([1,profile,0xe0,level,0xff,0xe1,0]));
  const stsz=box('stsz',Uint8Array.from([0,0,0,0,0,0,0,0,0,0,0,frames]));
- const moov=box('moov',join(box('trak',join(box('mdia',box('minf',
-   box('stbl',join(stsz,box('stsd',box('avc1',avcC)))))))))));
+ const stbl=box('stbl',join(stsz,box('stsd',box('avc1',avcC))));
+ const minf=box('minf',stbl);
+ const mdia=box('mdia',minf);
+ const trak=box('trak',mdia);
+ const moov=box('moov',trak);
  const mdat=box('mdat',new Uint8Array(256));
  return new Blob(order==='fast'?[ftyp,moov,box('free',new Uint8Array(40)),...(truncate?[]:[mdat])]:
    [ftyp,mdat,moov],{type:'video/mp4'});
