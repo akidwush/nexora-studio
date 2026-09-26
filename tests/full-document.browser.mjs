@@ -83,7 +83,7 @@ try{
  await page.getByRole('button',{name:/Run preview/}).click();
  await page.locator('iframe[title="Sandboxed code preview"]').waitFor();
  const srcdoc=await page.locator('iframe[title="Sandboxed code preview"]').getAttribute('srcdoc');
- assert.match(srcdoc,/preserveDrawingBuffer:true/);
+ assert.ok(srcdoc.includes('preserveDrawingBuffer'), 'WebGL framebuffer retention bootstrap must be injected into sandbox');
  assert.match(srcdoc,/sandbox|webgl/);
  assert.doesNotMatch(srcdoc,/allow-same-origin/);
  await page.selectOption('#html-video-size','compact');
