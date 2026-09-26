@@ -90,3 +90,7 @@ test('fail-closed importmap rejects unrecognized versions, hosts, credentials an
    assert.throws(()=>normalizePinnedThreeImportMap({imports}));
  assert.throws(()=>normalizePinnedThreeImportMap({imports:{three:unsafe[0]},scopes:{}}));
 });
+
+test('error categorization recognizes unsupported module mapping as a module issue',()=>{
+ assert.equal(classifyRenderError(new Error('Unsupported module mapping: three')),'MODULE');
+});

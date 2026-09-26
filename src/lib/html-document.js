@@ -75,9 +75,14 @@ export function normalizePinnedThreeImportMap(map){
   for(const [specifier,target] of entries){
     if(!Object.hasOwn(CANONICAL,specifier)||!isKnownPinnedTarget(specifier,target)){
       const safeName=specifier.slice(0,65);
-      throw Error('Unsupported module mapping: '+safeName+
-        '. This mode supports known Three.js '+THREE_VERSION+
-        ' CDN mappings only. Update a different version or custom URL before preview.');
+      const providedVersion=typeof target==='string'?
+        target.match(/three(?:\\.js)?@(\\d+\\.\\d+\\.\\d+)/)?.[1]:null;
+      const mismatch=providedVersion&&providedVersion!==THREE_VERSION?
+        ' This HTML maps Three.js '+providedVersion+
+        ', but this engine is pinned to '+THREE_VERSION+'.':'';
+      throw Error('Unsupported module mapping: '+safeName+'.'+mismatch+
+        ' Only recognized Three.js '+THREE_VERSION+
+        ' core/WebGL/addon CDN declarations are supported.');
     }
     imports[specifier]=CANONICAL[specifier];
   }
