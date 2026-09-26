@@ -38,7 +38,9 @@ export default function HtmlVideoExport({source}:Props){
   const previewIndex=sample==='middle'?Math.floor(fps*duration/2):
     sample==='last'?fps*duration-1:0;
   const busy=working||previewing;
-  const opts={size,fps,duration,matte};
+  // Full-document 5/8/10s durations must reach the same preflight validator
+  // as capture/encoder, rather than accidentally using legacy 1–3s rules.
+  const opts={size,fps,duration,matte,...(fullDocument?{document:source.document}:{})};
   const dimensions=HTML_VIDEO_SIZES[size];
   const validPreview=rawPreview?.key===key&&rawPreview.index===previewIndex?rawPreview:null;
 

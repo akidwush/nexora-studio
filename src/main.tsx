@@ -86,7 +86,7 @@ function App() {
       const next=createSandboxSnapshot(selectedScene(),clockEnabled);
       setClockFrame(0);setClockStatus(null);
       setPreview(next);setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
-    }catch(error){setPreviewActive(false);setPreviewIssue(error instanceof Error?error.message:'Preview could not start.');}
+    }catch(error){setPreviewActive(false);setMobilePreview(true);setPreviewIssue(error instanceof Error?error.message:'Preview could not start.');}
   }
   function enableClock(enabled:boolean){
     try{

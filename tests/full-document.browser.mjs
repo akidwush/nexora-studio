@@ -106,6 +106,13 @@ try{
    'WebGL video must contain full animated frames rather than one screenshot: '+JSON.stringify({first,last}));
  assert.ok(first[2]>120&&last[2]>120,'WebGL RGB must be captured, not a black blank canvas.');
  assert.match((await page.locator('.html-video-message').textContent())||'',/verified/i);
+ // Long one-file preview should use document-specific duration validation,
+ // but this lightweight UI proof captures only frame zero (not 150 frames).
+ await page.selectOption('#html-video-duration','5');
+ await page.getByRole('button',{name:/Match export preview/}).click();
+ await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i}).waitFor({timeout:45000});
+ await page.selectOption('#html-video-duration','1');
+ console.log('PASS: 5-second experimental full-document output is accepted by UI preflight.');
  console.log('PASS: full-file inline WebGL canvas -> actual 30 FPS H.264 with changing decoded pixels',JSON.stringify({first,last,bytes:bytes.length}));
  // The user's original CodePen-style HTML importmap MUST be recognized and
  // rewritten to one consistent Three.js version, never raw CodePen/esm mixture.
@@ -132,6 +139,7 @@ try{
      'Full-file editor overflows '+width+'px mobile viewport');
  }
  console.log('PASS: full-file UI fits mobile 360/390/412 and retains traditional four-tab editor.');
+ await page.setViewportSize({width:1440,height:900});
  await page.screenshot({path:'artifacts/full-html-document-webgl-desktop.png',fullPage:true});
 
  // Negative full-document ingress tests: invalid external dependencies
