@@ -9,7 +9,8 @@ type Source={html:string;css:string;svg:string;js:string;document?:never}|{docum
 type Props={source:Source;sourceReady?:boolean};
 type RawPreview={key:string;index:number;png:Blob};
 type FrameScore={frame:number;meanError:number;severeFraction:number};
-type Quality={meanError:number;severeFraction:number;frames:FrameScore[];outputMode:string};
+type Quality={meanError:number;severeFraction:number;frames:FrameScore[];outputMode:string;
+  compatibility?:{codec:string;fastStart:boolean;profile:number;level:number;bytes:number}};
 type Report=ReturnType<typeof makeRenderReport>;
 export default function HtmlVideoExport({source,sourceReady=true}:Props){
   const [size,setSize]=useState<Size>('compact');
@@ -32,6 +33,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
   const [matteUrl,setMatteUrl]=useState('');
   const [alphaUrl,setAlphaUrl]=useState('');
   const [videoUrl,setVideoUrl]=useState('');
+  const [playbackError,setPlaybackError]=useState('');
   const abortRef=useRef<AbortController|null>(null);
   const videoRef=useRef('');
   const fullDocument=typeof source.document==='string';
@@ -79,11 +81,11 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
     abortRef.current?.abort();
     setRawPreview(null);setQuality(null);setReport(null);setMessage('');
     if(videoRef.current){URL.revokeObjectURL(videoRef.current);videoRef.current='';}
-    setVideoUrl('');
+    setVideoUrl('');setPlaybackError('');
   },[key]);
   useEffect(()=>{
     if(videoRef.current){URL.revokeObjectURL(videoRef.current);videoRef.current='';}
-    setVideoUrl('');setQuality(null);setReport(null);
+    setVideoUrl('');setQuality(null);setReport(null);setPlaybackError('');
   },[matte]);
   useEffect(()=>{
     if(!rawPreview||rawPreview.key!==key)return;
@@ -134,7 +136,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
     setWorking(true);setProgress(0);setQuality(null);setReport(null);
     setMessage('Validating preview and preparing deterministic capture…');
     if(videoRef.current){URL.revokeObjectURL(videoRef.current);videoRef.current='';}
-    setVideoUrl('');
+    setVideoUrl('');setPlaybackError('');
     const task=new AbortController();abortRef.current=task;
     let receivedReport=false;
     try{
@@ -285,6 +287,10 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
       <button className="secondary" onClick={downloadReport}>↓ Download reproducible rendering report (JSON)</button>
       <small>{report.result.status==='PASSED'?'All inspected frames passed.':
         'Failure recorded: '+(report.result.code||'RENDER')+'. No report data was uploaded.'}</small>
+      {report.compatibility&&<small className="html-render-compatibility">
+        MP4 check: {report.compatibility.codec} · Fast Start · {report.compatibility.bytes} bytes.
+        Android device playback still depends on that phone's decoder and media app.
+      </small>}
       {report.result.status==='FAILED'&&<small className="html-render-failure-detail" role="alert">
         Cause: {report.result.message}
       </small>}
@@ -293,7 +299,11 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
       <a className="video-download" href={videoUrl}
         download={'nexora-html-'+size+'-'+fps+'fps.mp4'}>{saveMode==='stream'?'Download an additional MP4 copy ↗':'Download verified MP4 again ↗'}</a>
       <video className="html-video-result" controls playsInline preload="metadata" src={videoUrl}
+        poster={matteUrl||undefined}
+        onLoadedMetadata={()=>setPlaybackError('')}
+        onError={()=>setPlaybackError('The Android browser cannot play this saved MP4 inline. Download the complete file and try Google Photos or the Files video player. If both fail, share the actual 5-second MP4 for codec and container inspection.')}
         aria-label="Rendered HTML video playback"/>
+      {playbackError&&<p role="alert" className="html-render-failure-detail">{playbackError}</p>}
     </>}
     <p className="html-video-limit">Streaming uses temporary device storage and only writes the selected file after parity checks. No server uploads. Compatible download is always available.</p>
     <p className="html-video-limit">{fullDocument?
