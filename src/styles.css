@@ -190,3 +190,5 @@
  * established single .html-video-message automation/status selector. */
 .html-video-gate-message{margin:0;line-height:1.55;color:#e7cfff;font-size:11px;overflow-wrap:anywhere;border:1px solid #685276;background:#271d37;padding:10px;border-radius:8px}
 .html-render-failure-detail{display:block;white-space:normal;overflow-wrap:anywhere;padding:9px;border:1px solid #9f5469;border-radius:6px;color:#ffc1cf}
+
+.full-doc-instructions{margin:10px 12px 4px;font-size:11px;line-height:1.65;color:#d6c7ed;background:#2b223e;border:1px solid #625077;border-radius:9px;padding:10px}

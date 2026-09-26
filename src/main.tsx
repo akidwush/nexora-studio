@@ -145,7 +145,7 @@ function App() {
       const source=assertDocumentSource(await file.text());
       setDocumentSource(source);setSourceMode('document');setPresetId('custom');
       setPreviewActive(false);setClockFrame(0);setClockStatus(null);
-      setPreviewIssue('Complete HTML loaded. Click Run preview; export uses the same source.');
+      setPreviewIssue('');
       setMobilePreview(false);
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'Invalid HTML file.');}
   }
@@ -216,11 +216,11 @@ function App() {
           <div className="panel-head"><b>CODE EDITOR</b><span>ISOLATED</span></div>
           <div className="full-doc-mode" role="group" aria-label="HTML source mode">
             <button className={sourceMode==='tabs'?'active':''} onClick={()=>{
-              setSourceMode('tabs');setPreviewActive(false);setPreviewIssue('Press Run preview to load the four-tab source.');
+              setSourceMode('tabs');setPreviewActive(false);setPreviewIssue('');
             }}>Four tabs</button>
             <button className={sourceMode==='document'?'active':''} onClick={()=>{
               setSourceMode('document');setPreviewActive(false);
-              setPreviewIssue('Paste a complete .html document or upload your file, then Run preview.');
+              setPreviewIssue('');
             }}>Full HTML file · WebGL</button>
           </div>
           {sourceMode==='tabs'?
@@ -234,12 +234,13 @@ function App() {
                 // seamlessly switch to the correct ONE-FILE/ESM/WebGL engine.
                 if(codeTab==='html'&&isCompleteHtml(next)&&next.trimEnd().toLowerCase().endsWith('</html>')){
                   setDocumentSource(next);setSourceMode('document');setPreviewActive(false);
-                  setPreviewIssue('Complete HTML detected. Press Run preview to render the whole document.');
+                  setPreviewIssue('');
                 }else{updateCode(next);setPresetId('custom');}
               }} aria-label={codeTab.toUpperCase()+' code editor'}/>
               <p className="panel-note">Four-tab code runs without remote resources. Pasting a complete &lt;html&gt;...&lt;/html&gt; file in the HTML tab automatically switches to the one-file renderer.</p>
             </>:
             <>
+              <p className="full-doc-instructions" role="note">Paste the complete HTML/CSS/JavaScript document below or import your .html file. Then click Run preview, prepare a matching export frame, and render MP4.</p>
               <div className="full-doc-upload">
                 <label>↑ Import complete .html file
                   <input type="file" accept=".html,.htm,text/html" aria-label="Import complete HTML file"

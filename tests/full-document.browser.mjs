@@ -81,6 +81,8 @@ try{
  await page.getByRole('button',{name:'Full HTML file · WebGL'}).click();
  assert.equal(await page.getByRole('button',{name:/Render MP4/}).isDisabled(),true,
    'Empty complete HTML must not produce an unhelpful RENDER failure report.');
+ assert.equal(await page.locator('.sandbox-issue[role="alert"]').count(),0,
+   'Selecting full HTML is an information state, not a red security/render error.');
  assert.equal(await page.getByRole('button',{name:/Match export preview/}).isDisabled(),true);
  assert.match(await page.getByTestId('full-html-export-gate').textContent(),/complete|paste|upload/i);
  await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(fullDocument);
