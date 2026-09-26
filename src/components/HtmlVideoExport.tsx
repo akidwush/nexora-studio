@@ -242,7 +242,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
       </button>
       {busy&&<button className="cancel-export" onClick={()=>abortRef.current?.abort()}>Cancel</button>}
     </div>
-    {fullDocument&&<p className="html-video-message" data-testid="full-html-export-gate" role="status">
+    {fullDocument&&<p className="html-video-gate-message" data-testid="full-html-export-gate" role="status">
       {renderBlockedReason||(!validPreview?'Prepare an export-matching frame before rendering the complete HTML video.':
         'Full HTML validated and matching frame ready. MP4 export unlocked.')}
     </p>}

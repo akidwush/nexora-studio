@@ -185,3 +185,8 @@
 .full-doc-upload label input{display:block;max-width:200px;font-size:11px;margin-top:6px}
 .code-panel textarea[aria-label='Full HTML document code editor']{min-height:335px;white-space:pre;overflow:auto}
 @media(max-width:600px){.full-doc-mode button{flex:1}.full-doc-upload label{width:100%}.code-panel textarea[aria-label='Full HTML document code editor']{min-height:280px}}
+
+/* Keep the new prerequisite hint visually consistent WITHOUT overloading the
+ * established single .html-video-message automation/status selector. */
+.html-video-gate-message{margin:0;line-height:1.55;color:#e7cfff;font-size:11px;overflow-wrap:anywhere;border:1px solid #685276;background:#271d37;padding:10px;border-radius:8px}
+.html-render-failure-detail{display:block;white-space:normal;overflow-wrap:anywhere;padding:9px;border:1px solid #9f5469;border-radius:6px;color:#ffc1cf}
