@@ -175,3 +175,13 @@
   .html-video-settings select{font-size:11px}
   .video-frame-checks span{font-size:10px}
 }
+
+/* Experimental one-file HTML/WebGL editor: mobile-first, no horizontal overflow. */
+.full-doc-mode{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px;background:#232031;border-bottom:1px solid #373047}
+.full-doc-mode button{padding:10px 14px;border:1px solid #655c7a;border-radius:10px;color:#d9d3e9;background:transparent;cursor:pointer;font-size:12px;font-weight:700}
+.full-doc-mode button.active{background:#45375d;color:white;border-color:#b8a0e6}
+.full-doc-upload{display:flex;flex-wrap:wrap;gap:10px;padding:12px;align-items:center;color:#aaa2bd;font-size:11px;border-bottom:1px solid #373047}
+.full-doc-upload label{cursor:pointer;color:#fff;font-weight:700;padding:9px 12px;background:#544171;border-radius:9px}
+.full-doc-upload label input{display:block;max-width:200px;font-size:11px;margin-top:6px}
+.code-panel textarea[aria-label='Full HTML document code editor']{min-height:335px;white-space:pre;overflow:auto}
+@media(max-width:600px){.full-doc-mode button{flex:1}.full-doc-upload label{width:100%}.code-panel textarea[aria-label='Full HTML document code editor']{min-height:280px}}
