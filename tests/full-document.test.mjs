@@ -30,3 +30,13 @@ test('long full-document export only at limited mobile-safe resolution',()=>{
  assert.throws(()=>validateHtmlVideoOptions({size:'compact',fps:30,duration:5}));
  assert.throws(()=>validateHtmlVideoOptions({document:sample,size:'landscape',fps:60,duration:1}));
 });
+
+import {classifyRenderError,makeRenderReport} from '../src/lib/render-fidelity-report.js';
+test('full HTML reports distinguish invalid input, WebGL loss and module error without leaking code',()=>{
+ assert.equal(classifyRenderError(new Error('Upload or paste a complete <!doctype html> file')),'INPUT');
+ assert.equal(classifyRenderError(new Error('WebGL context lost after GPU reset')),'WEBGL');
+ assert.equal(classifyRenderError(new Error('Pinned Three.js module failed to load')),'MODULE');
+ const source={document:'<!doctype html><html><head></head><body>private</body></html>'};
+ assert.equal(makeRenderReport({}, {error:new Error('Upload or paste a complete html'),source}).source,undefined);
+ assert.equal(makeRenderReport({}, {includeSource:true,source}).source.document,source.document);
+});

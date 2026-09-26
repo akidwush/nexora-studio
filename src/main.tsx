@@ -42,6 +42,7 @@ function App() {
   const [page, setPage] = useState<Page>(()=>readPageFromLocation());
   const [sourceMode,setSourceMode]=useState<'tabs'|'document'>('tabs');
   const [documentSource,setDocumentSource]=useState('');
+  const [documentRunSource,setDocumentRunSource]=useState<string|null>(null);
   const [html, setHtml] = useState(DEFAULT_HTML);
   const [css, setCss] = useState(DEFAULT_CSS);
   const [js, setJs] = useState(DEFAULT_JS);
@@ -84,6 +85,7 @@ function App() {
   function runPreview() {
     try{
       const next=createSandboxSnapshot(selectedScene(),clockEnabled);
+      if(sourceMode==='document')setDocumentRunSource(documentSource);
       setClockFrame(0);setClockStatus(null);
       setPreview(next);setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
     }catch(error){setPreviewActive(false);setMobilePreview(true);setPreviewIssue(error instanceof Error?error.message:'Preview could not start.');}
@@ -91,6 +93,7 @@ function App() {
   function enableClock(enabled:boolean){
     try{
       const next=createSandboxSnapshot(selectedScene(),enabled);
+      if(sourceMode==='document')setDocumentRunSource(documentSource);
       setClockEnabled(enabled);setClockFrame(0);setClockStatus(null);
       setPreview(next);setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'Timeline initialization failed.');}
@@ -99,7 +102,10 @@ function App() {
     try{
       const snapshot=createSandboxSnapshot(selectedScene(),clockEnabled);
       setClockFps(next);setClockFrame(0);setClockStatus(null);
-      if(clockEnabled){setPreview(snapshot);setPreviewActive(true);}
+      if(clockEnabled){
+        if(sourceMode==='document')setDocumentRunSource(documentSource);
+        setPreview(snapshot);setPreviewActive(true);
+      }
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'Timeline reconfiguration failed.');}
   }
   function exportHtml(){
@@ -139,7 +145,7 @@ function App() {
       const source=assertDocumentSource(await file.text());
       setDocumentSource(source);setSourceMode('document');setPresetId('custom');
       setPreviewActive(false);setClockFrame(0);setClockStatus(null);
-      setPreviewIssue('Complete HTML loaded. Click Run preview; export uses the same source.');
+      setPreviewIssue('');
       setMobilePreview(false);
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'Invalid HTML file.');}
   }
@@ -210,11 +216,11 @@ function App() {
           <div className="panel-head"><b>CODE EDITOR</b><span>ISOLATED</span></div>
           <div className="full-doc-mode" role="group" aria-label="HTML source mode">
             <button className={sourceMode==='tabs'?'active':''} onClick={()=>{
-              setSourceMode('tabs');setPreviewActive(false);setPreviewIssue('Press Run preview to load the four-tab source.');
+              setSourceMode('tabs');setPreviewActive(false);setPreviewIssue('');
             }}>Four tabs</button>
             <button className={sourceMode==='document'?'active':''} onClick={()=>{
               setSourceMode('document');setPreviewActive(false);
-              setPreviewIssue('Paste a complete .html document or upload your file, then Run preview.');
+              setPreviewIssue('');
             }}>Full HTML file · WebGL</button>
           </div>
           {sourceMode==='tabs'?
@@ -228,12 +234,13 @@ function App() {
                 // seamlessly switch to the correct ONE-FILE/ESM/WebGL engine.
                 if(codeTab==='html'&&isCompleteHtml(next)&&next.trimEnd().toLowerCase().endsWith('</html>')){
                   setDocumentSource(next);setSourceMode('document');setPreviewActive(false);
-                  setPreviewIssue('Complete HTML detected. Press Run preview to render the whole document.');
+                  setPreviewIssue('');
                 }else{updateCode(next);setPresetId('custom');}
               }} aria-label={codeTab.toUpperCase()+' code editor'}/>
               <p className="panel-note">Four-tab code runs without remote resources. Pasting a complete &lt;html&gt;...&lt;/html&gt; file in the HTML tab automatically switches to the one-file renderer.</p>
             </>:
             <>
+              <p className="full-doc-instructions" role="note">Paste the complete HTML/CSS/JavaScript document below or import your .html file. Then click Run preview, prepare a matching export frame, and render MP4.</p>
               <div className="full-doc-upload">
                 <label>↑ Import complete .html file
                   <input type="file" accept=".html,.htm,text/html" aria-label="Import complete HTML file"
@@ -254,7 +261,8 @@ function App() {
           <div className="panel-head"><b>PREVIEW</b><div className="ratios">{(['16:9','9:16','1:1'] as Ratio[]).map(r=><button key={r} className={r===ratio?'active':''} onClick={() => setRatio(r)}>{r}</button>)}</div></div>
           <HtmlSandbox preview={preview} active={previewActive} ratio={ratio}
             timeline={{enabled:clockEnabled,frame:clockFrame,fps:clockFps,onUpdate:setClockStatus}}/>
-          <HtmlVideoExport source={sourceMode==='document'?{document:documentSource}:{html,css,svg:svgCode,js}}/>
+          <HtmlVideoExport source={sourceMode==='document'?{document:documentSource}:{html,css,svg:svgCode,js}}
+            sourceReady={sourceMode!=='document'||(previewActive&&documentRunSource===documentSource)}/>
           <div className="frame-clock-controls">
             <div className="frame-clock-header">
               <strong>DETERMINISTIC TIMELINE</strong>
