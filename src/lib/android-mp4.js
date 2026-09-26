@@ -47,6 +47,8 @@ export async function inspectAndroidMp4(blob,{expectedFrames=null}={}){
     throw Error('MP4 is missing or incomplete.');
   const limit=Math.min(blob.size,1024*1024);
   const header=new Uint8Array(await blob.slice(0,limit).arrayBuffer());
+  if(header.length<8||fourcc(header,4)!=='ftyp')
+    throw Error('MP4 is missing its file type header.');
   const top=mp4Boxes(header,header.length);
   if(top[0]?.type!=='ftyp')throw Error('MP4 is missing its file type header.');
   const moov=top.find(x=>x.type==='moov');
