@@ -123,6 +123,40 @@ try{
  await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i}).waitFor({timeout:45000});
  await page.selectOption('#html-video-duration','1');
  console.log('PASS: 5-second experimental full-document output is accepted by UI preflight.');
+ // Real Android-oriented 5-second STREAMING smoke: headless Chrome does not
+ // emulate a physical Android decoder, so check the finished streamed bytes
+ // with independent ffprobe in the next mandatory CI step.
+ const five=await page.evaluate(async(source)=>{
+   const {encodeHtmlVideo}=await import('/src/lib/html-video.js');
+   const {inspectAndroidMp4}=await import('/src/lib/android-mp4.js');
+   if(typeof window.showSaveFilePicker!=='function')
+     Object.defineProperty(window,'showSaveFilePicker',{configurable:true,value:async()=>{}});
+   const chunks=[];
+   let started=0;
+   const fileHandle={
+     createWritable:async()=>{started++;return new WritableStream({
+       write:part=>chunks.push(part),
+     });},
+     getFile:async()=>new Blob(chunks,{type:'video/mp4'})
+   };
+   let quality=null;
+   const video=await encodeHtmlVideo({
+     document:source,size:'compact',fps:30,duration:5,matte:'#02030B'
+   },{fileHandle,onQuality:item=>quality=item});
+   const mobile=await inspectAndroidMp4(video,{expectedFrames:150});
+   if(!quality||quality.frames.map(s=>s.frame).join(',')!=='0,75,149')
+     throw Error('Five-second streaming fidelity did not inspect 0/75/149.');
+   if(started!==1||!mobile.fastStart||mobile.profile!==66||mobile.level>31)
+     throw Error('Five-second destination was not a compatible nonfragmented H264 MP4.');
+   return {metadata:mobile,frames:quality.frames,
+     bytes:Array.from(new Uint8Array(await video.arrayBuffer()))};
+ },fullDocument);
+ assert.ok(five.bytes.length>300);
+ assert.deepEqual(five.frames.map(x=>x.frame),[0,75,149]);
+ assert.equal(five.metadata.fastStart,true);
+ await writeFile('artifacts/android-webgl-five-seconds-stream.mp4',Buffer.from(five.bytes));
+ console.log('PASS: real 5s 150-frame OPFS streaming produced verified Baseline Fast Start MP4 for ffprobe; bytes '+five.bytes.length);
+
  // Returning to legacy four-tab mode must restore its 1–3s menu automatically.
  await page.selectOption('#html-video-duration','5');
  await page.getByRole('button',{name:'Four tabs'}).click();
