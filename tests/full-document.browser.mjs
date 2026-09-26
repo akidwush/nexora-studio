@@ -113,6 +113,13 @@ try{
  await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i}).waitFor({timeout:45000});
  await page.selectOption('#html-video-duration','1');
  console.log('PASS: 5-second experimental full-document output is accepted by UI preflight.');
+ // Returning to legacy four-tab mode must restore its 1–3s menu automatically.
+ await page.selectOption('#html-video-duration','5');
+ await page.getByRole('button',{name:'Four tabs'}).click();
+ await page.waitForFunction(()=>document.querySelector('#html-video-duration')?.value==='3',null,{timeout:6000});
+ await page.getByRole('button',{name:'Full HTML file · WebGL'}).click();
+ await page.selectOption('#html-video-duration','1');
+ console.log('PASS: switching from extended WebGL duration to the old four-tab editor resets unsupported 5s selection.');
  console.log('PASS: full-file inline WebGL canvas -> actual 30 FPS H.264 with changing decoded pixels',JSON.stringify({first,last,bytes:bytes.length}));
  // The user's original CodePen-style HTML importmap MUST be recognized and
  // rewritten to one consistent Three.js version, never raw CodePen/esm mixture.

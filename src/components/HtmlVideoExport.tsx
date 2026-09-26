@@ -41,6 +41,11 @@ export default function HtmlVideoExport({source}:Props){
   // Full-document 5/8/10s durations must reach the same preflight validator
   // as capture/encoder, rather than accidentally using legacy 1–3s rules.
   const opts={size,fps,duration,matte,...(fullDocument?{document:source.document}:{})};
+  useEffect(()=>{
+    // Reopening the old four-tab editor after a 5/8/10s WebGL experiment
+    // must not strand its legacy 1–3s dropdown on an unsupported value.
+    if(!fullDocument)setDuration(value=>Math.min(value,3));
+  },[fullDocument]);
   const dimensions=HTML_VIDEO_SIZES[size];
   const validPreview=rawPreview?.key===key&&rawPreview.index===previewIndex?rawPreview:null;
 
