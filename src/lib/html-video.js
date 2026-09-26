@@ -27,7 +27,7 @@ export async function encodeHtmlVideo(options,{
     if(reference&&(!Number.isInteger(reference.index)||reference.index<0||
       reference.index>=plan.frames||!(reference.png instanceof Blob)))
       throw new Error('The export reference is not a valid preview frame.');
-    const {Output,Mp4OutputFormat,BufferTarget,StreamTarget,CanvasSource,Quality}=await import('mediabunny');
+    const {Output,Mp4OutputFormat,BufferTarget,StreamTarget,CanvasSource}=await import('mediabunny');
     if(signal?.aborted)throw new HtmlExportCancelled();
     const important=criticalFrameIndices(plan.frames);
     const selectedIndex=reference?.index??0;
@@ -43,7 +43,7 @@ export async function encodeHtmlVideo(options,{
         MOBILE_MP4_FORMAT:{fastStart:'in-memory'}),target:sink.target});
       const track=new CanvasSource(canvas,{
         codec:'avc',fullCodecString:MOBILE_AVC_CODEC,
-        quality:new Quality({bitrate}),latencyMode:'quality',keyFrameInterval:1
+        bitrate,latencyMode:'quality',keyFrameInterval:1
       });
       // Reserve exactly enough moov metadata up front without buffering all
       // media chunks in RAM: still a regular, seekable, non-fragmented MP4.
