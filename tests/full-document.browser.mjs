@@ -4,7 +4,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
-import {mkdir,readFile} from 'node:fs/promises';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 
 const host='http://127.0.0.1:4195';
