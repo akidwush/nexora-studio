@@ -2,15 +2,16 @@ import {useEffect,useRef,useState} from 'react';
 import {HTML_VIDEO_SIZES,validateHtmlVideoOptions} from '../lib/html-video-plan.js';
 import {supportsStreamingSave,beginMp4FilePick} from '../lib/mp4-output-sink.js';
 import {makeRenderReport} from '../lib/render-fidelity-report.js';
+import {assertDocumentSource} from '../lib/html-document.js';
 
 type Size=keyof typeof HTML_VIDEO_SIZES;
 type Source={html:string;css:string;svg:string;js:string;document?:never}|{document:string;html?:never;css?:never;svg?:never;js?:never};
-type Props={source:Source};
+type Props={source:Source;sourceReady?:boolean};
 type RawPreview={key:string;index:number;png:Blob};
 type FrameScore={frame:number;meanError:number;severeFraction:number};
 type Quality={meanError:number;severeFraction:number;frames:FrameScore[];outputMode:string};
 type Report=ReturnType<typeof makeRenderReport>;
-export default function HtmlVideoExport({source}:Props){
+export default function HtmlVideoExport({source,sourceReady=true}:Props){
   const [size,setSize]=useState<Size>('compact');
   const [fps,setFps]=useState(30);
   const [duration,setDuration]=useState(1);
@@ -48,6 +49,16 @@ export default function HtmlVideoExport({source}:Props){
   },[fullDocument]);
   const dimensions=HTML_VIDEO_SIZES[size];
   const validPreview=rawPreview?.key===key&&rawPreview.index===previewIndex?rawPreview:null;
+  let documentProblem='';
+  if(fullDocument){
+    try{assertDocumentSource(source.document);}catch(error){
+      documentProblem=error instanceof Error?error.message:'Invalid HTML document.';
+    }
+  }
+  const renderReady=!fullDocument||(!documentProblem&&sourceReady);
+  const exportReady=renderReady&&(!fullDocument||Boolean(validPreview));
+  const renderBlockedReason=documentProblem||(!sourceReady&&fullDocument?
+    'Run preview with the current complete HTML file before capturing frames.':'');
 
   useEffect(()=>{setStreamAvailable(supportsStreamingSave(window));},[]);
   useEffect(()=>{
@@ -66,7 +77,7 @@ export default function HtmlVideoExport({source}:Props){
     // A code/FPS/size change invalidates any previously captured preview and
     // exported video. Never display mismatched stale visual results.
     abortRef.current?.abort();
-    setRawPreview(null);setQuality(null);setReport(null);
+    setRawPreview(null);setQuality(null);setReport(null);setMessage('');
     if(videoRef.current){URL.revokeObjectURL(videoRef.current);videoRef.current='';}
     setVideoUrl('');
   },[key]);
@@ -94,7 +105,7 @@ export default function HtmlVideoExport({source}:Props){
   useEffect(()=>()=>{abortRef.current?.abort();if(videoRef.current)URL.revokeObjectURL(videoRef.current);},[]);
 
   const runPreview=async()=>{
-    if(busy)return;
+    if(busy||!renderReady)return;
     setPreviewing(true);setMessage('Replaying the exact HTML timeline to frame '+previewIndex+'…');
     const task=new AbortController();abortRef.current=task;
     try{
@@ -113,7 +124,7 @@ export default function HtmlVideoExport({source}:Props){
     finally{if(abortRef.current===task)abortRef.current=null;setPreviewing(false);}
   };
   const exportVideo=async()=>{
-    if(busy||support!==true)return;
+    if(busy||support!==true||!exportReady)return;
     const filename='nexora-'+(fullDocument?'full-html':'html')+'-'+size+'-'+fps+'fps.mp4';
     // File pick MUST begin in the original button gesture, before dynamic
     // imports, capture work or any other await (mobile browser requirement).
@@ -223,14 +234,18 @@ export default function HtmlVideoExport({source}:Props){
     <p className="html-video-limit">H.264 MP4 cannot retain alpha. Pick the same background
       used by the verified frame preview. Raw transparent PNG retains its alpha.</p>
     <div className="html-video-actions">
-      <button className="secondary" disabled={busy} onClick={()=>void runPreview()}>
+      <button className="secondary" disabled={busy||!renderReady} onClick={()=>void runPreview()}>
         {previewing?'Replaying…':'◉ Match export preview'}
       </button>
-      <button className="primary" disabled={busy||support!==true} onClick={()=>void exportVideo()}>
+      <button className="primary" disabled={busy||support!==true||!exportReady} onClick={()=>void exportVideo()}>
         {working?'Verifying…':'↓ Render MP4'}
       </button>
       {busy&&<button className="cancel-export" onClick={()=>abortRef.current?.abort()}>Cancel</button>}
     </div>
+    {fullDocument&&<p className="html-video-message" data-testid="full-html-export-gate" role="status">
+      {renderBlockedReason||(!validPreview?'Prepare an export-matching frame before rendering the complete HTML video.':
+        'Full HTML validated and matching frame ready. MP4 export unlocked.')}
+    </p>}
     {validPreview&&<>
       <div className="html-video-preview-heading">
         <span>REFERENCE FRAME {previewIndex} · {Math.round(previewIndex*1000/fps)} ms</span>
@@ -265,11 +280,14 @@ export default function HtmlVideoExport({source}:Props){
     {report&&<div className="html-video-report">
       <label><input type="checkbox" checked={includeSource}
         onChange={event=>setIncludeSource(event.target.checked)}/>
-        Include HTML/CSS/SVG/JS in downloaded report (may contain private code)
+        Include the current source in the downloaded report (may contain private HTML/JS)
       </label>
       <button className="secondary" onClick={downloadReport}>↓ Download reproducible rendering report (JSON)</button>
       <small>{report.result.status==='PASSED'?'All inspected frames passed.':
         'Failure recorded: '+(report.result.code||'RENDER')+'. No report data was uploaded.'}</small>
+      {report.result.status==='FAILED'&&<small className="html-render-failure-detail" role="alert">
+        Cause: {report.result.message}
+      </small>}
     </div>}
     {videoUrl&&<>
       <a className="video-download" href={videoUrl}
@@ -278,9 +296,9 @@ export default function HtmlVideoExport({source}:Props){
         aria-label="Rendered HTML video playback"/>
     </>}
     <p className="html-video-limit">Streaming uses temporary device storage and only writes the selected file after parity checks. No server uploads. Compatible download is always available.</p>
-    <p className="html-video-limit">Self-contained HTML/CSS/SVG/JS and system or embedded
-      data-fonts only. Some advanced filters or browser-specific effects may fail parity
-      checks. Maximum 3 seconds; 60 FPS at 640×360. Real-time playback speed is separate
-      from offline frame accuracy.</p>
+    <p className="html-video-limit">{fullDocument?
+      'Complete HTML/WebGL uses only the pinned Three.js 0.172 import map. It needs an available CDN and browser GPU. Extended 5/8/10 second exports are limited to 640×360.':
+      'Self-contained HTML/CSS/SVG/JS with local or embedded assets only. Maximum 3 seconds; 60 FPS at 640×360.'}
+      {' '}All successful exports retain preview and decoded-video parity checks.</p>
   </section>;
 }
