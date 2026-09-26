@@ -24,6 +24,16 @@ const assertions={
     source.includes('legacy WAAPI seeker')&&source.includes('legacy HIC preview'),
   localProjectSchemaCheck:source.includes('__nexoraAssertSafeProject(data);'),
   mediaLimits:source.includes('__nexoraSafeMedia(file')&&source.includes('__nexoraSafeMedia(e.file'),
+  secondaryMediaProtected:[
+    'Invalid or oversized replacement media',
+    'Invalid audio-library replacement',
+    'Invalid or oversized sound effect',
+    'Invalid named Markdown audio',
+    'No valid Markdown audio',
+    'Too many replacement files'
+  ].every(message=>source.includes(message))&&
+    source.includes('window.replaceClipSource = async function')&&
+    source.includes('window.importMarkdownAudioFor = async function'),
   legacySavedContentInert:source.includes('old stored presets retained but quarantined')&&
     source.includes('old stored templates retained but not evaluated')&&
     source.includes('__nexoraSafeFontRecord')&&
