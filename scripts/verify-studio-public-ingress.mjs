@@ -22,7 +22,10 @@ const assertions={
     source.includes("false && clip.type === 'hic'")&&
     source.includes('legacy HTML pre-render')&&
     source.includes('legacy WAAPI seeker')&&source.includes('legacy HIC preview'),
-  localProjectSchemaCheck:source.includes('__nexoraAssertSafeProject(data);'),
+  localProjectSchemaCheck:source.includes('__nexoraAssertSafeProject(data);')&&
+    source.includes('__nexoraPersistedDeepCheck(data);')&&
+    source.includes('Stored project includes unreviewed executable content.')&&
+    source.includes('Stored project contains unsafe unescaped UI metadata:'),
   mediaLimits:source.includes('__nexoraSafeMedia(file')&&source.includes('__nexoraSafeMedia(e.file'),
   secondaryMediaProtected:[
     'Invalid or oversized replacement media',
