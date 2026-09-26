@@ -101,3 +101,25 @@ original project bytes and opens a new clean workspace instead of crashing.
 The existing Projects menu can still export the untouched old JSON for
 separate offline migration, but it must not be re-imported into the public
 editor while those code paths remain quarantined.
+
+## Experimental one-file HTML and Three.js WebGL → MP4
+
+The independent first-party Motion Lab now has **Full HTML file · WebGL** as a
+second source mode; paste/upload one complete `.html` (head, inline CSS,
+importmap, ESM scripts and body together). The original four-tab editor is
+unchanged. One isolated opaque-origin iframe runs the full document and its
+virtual frame clock; preserving the WebGL drawing buffer lets the existing
+HTML PNG → MediaBunny H.264 path encode the actual canvas frame at each
+requested timestamp. The same `Match export preview` and first/middle/last
+**decoded** video comparisons remain mandatory; no server renders/charges.
+
+The supported imported Three.js r172 CodePen-style importmap in the supplied
+example is normalized to a **single pinned CDN** module graph to avoid mixing
+WebGPU, WebGL and addon builds. This is online-only for that library: no arbitrary
+external JS, fetch, remote fonts/media, nested iframes or web pages are allowed.
+An external CDN failure and browser WebGL limitations can still stop an export;
+this is not an unrestricted HTML/webpage recorder. Long scene exports (5/8/10s)
+are restricted to 640×360 to manage mobile RAM. In complex L-system demos,
+14 recursive iterations may exhaust mobile memory: test at 6–8 iterations
+before raising geometry complexity. See `docs/FULL_DOCUMENT_WEBGL.md` for
+browser proof, resource constraints, security and reproducible steps.

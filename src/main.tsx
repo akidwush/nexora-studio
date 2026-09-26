@@ -9,6 +9,7 @@ import { pixelGridToSvg } from './lib/vector.js';
 import { MOTION_PRESETS, getMotionPreset } from './lib/presets.js';
 import { svgToPngBlob } from './lib/export.js';
 import {frameTimestamp} from './lib/timeline-runtime.js';
+import {assertDocumentSource,isCompleteHtml,DOCUMENT_LIMIT} from './lib/html-document.js';
 const VideoWorkspace=React.lazy(()=>import('./video/VideoWorkspace'));
 const AiWorkspace=React.lazy(()=>import('./ai/AiWorkspace'));
 import './styles.css';
@@ -20,7 +21,7 @@ const DEFAULT_HTML = '<main><div class="orb"></div><span class="eyebrow">NEXORA 
 const DEFAULT_CSS = 'main{box-sizing:border-box;min-height:100vh;background:radial-gradient(circle at 72% 25%,#493071,transparent 45%),#110d23;display:flex;flex-direction:column;justify-content:center;padding:9%;color:white;font-family:system-ui;overflow:hidden;position:relative}.eyebrow{font-size:12px;letter-spacing:4px;color:#b9a9ff;z-index:1}h1{font-size:clamp(36px,8vw,90px);line-height:1.05;letter-spacing:-.06em;z-index:1;margin:20px 0}em{font-style:normal;color:#b9a9ff}p{color:#c4b9dc;z-index:1}.orb{position:absolute;right:10%;top:12%;width:42vmin;height:42vmin;border-radius:32%;background:linear-gradient(135deg,#d7c4ff,#744be4 65%,#281650);box-shadow:0 25px 85px #744be483;animation:float 4s ease-in-out infinite}@keyframes float{50%{transform:translateY(-24px) rotate(25deg)}}';
 const DEFAULT_JS = '// Custom JavaScript runs inside an isolated iframe.\nconsole.log("NEXORA Motion Lab ready");';
 const SVG_EXAMPLE = '<svg id="motion-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="100%" role="img" aria-label="Animated SVG demo"><style>.nx-spin{transform-origin:160px 100px;animation:nx-spin 4s linear infinite}@keyframes nx-spin{to{transform:rotate(360deg)}}</style><rect width="320" height="200" rx="30" fill="#1c1b3e"/><g class="nx-spin"><circle cx="160" cy="100" r="62" stroke="#bda2ff" stroke-width="5" fill="none"/><circle cx="222" cy="100" r="14" fill="#ffe3b3"/></g><text x="160" y="106" text-anchor="middle" fill="#fff" font-size="16">SVG MOTION</text></svg>';
-function createSandboxSnapshot(input: {html:string;css:string;svg:string;js:string},controlled=false) {
+function createSandboxSnapshot(input: {html?:string;css?:string;svg?:string;js?:string;document?:string},controlled=false) {
   const session=crypto.randomUUID();
   return {session,doc:buildPreviewDoc({...input,session,controlled})};
 }
@@ -39,6 +40,8 @@ function readPageFromLocation(): Page {
 
 function App() {
   const [page, setPage] = useState<Page>(()=>readPageFromLocation());
+  const [sourceMode,setSourceMode]=useState<'tabs'|'document'>('tabs');
+  const [documentSource,setDocumentSource]=useState('');
   const [html, setHtml] = useState(DEFAULT_HTML);
   const [css, setCss] = useState(DEFAULT_CSS);
   const [js, setJs] = useState(DEFAULT_JS);
@@ -76,37 +79,40 @@ function App() {
     window.history.pushState({nexoraTool:next},'',nextUrl.pathname+nextUrl.search+nextUrl.hash);
     setPage(next);setMobilePreview(false);window.scrollTo(0,0);
   }
+  const selectedScene=()=>sourceMode==='document'?{document:assertDocumentSource(documentSource)}:
+    {html,css,svg:svgCode,js};
   function runPreview() {
     try{
-      const next=createSandboxSnapshot({html,css,svg:svgCode,js},clockEnabled);
+      const next=createSandboxSnapshot(selectedScene(),clockEnabled);
       setClockFrame(0);setClockStatus(null);
       setPreview(next);setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
-    }catch(error){setPreviewIssue(error instanceof Error?error.message:'Preview could not start.');}
+    }catch(error){setPreviewActive(false);setMobilePreview(true);setPreviewIssue(error instanceof Error?error.message:'Preview could not start.');}
   }
   function enableClock(enabled:boolean){
     try{
-      const next=createSandboxSnapshot({html,css,svg:svgCode,js},enabled);
+      const next=createSandboxSnapshot(selectedScene(),enabled);
       setClockEnabled(enabled);setClockFrame(0);setClockStatus(null);
       setPreview(next);setPreviewActive(true);setPreviewIssue('');setMobilePreview(true);
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'Timeline initialization failed.');}
   }
   function changeClockFps(next:number){
     try{
-      const snapshot=createSandboxSnapshot({html,css,svg:svgCode,js},clockEnabled);
+      const snapshot=createSandboxSnapshot(selectedScene(),clockEnabled);
       setClockFps(next);setClockFrame(0);setClockStatus(null);
       if(clockEnabled){setPreview(snapshot);setPreviewActive(true);}
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'Timeline reconfiguration failed.');}
   }
   function exportHtml(){
     try{
-      download('nexora-motion.html',buildPreviewDoc({html,css,svg:svgCode,js}),'text/html');
+      if(sourceMode==='document')download('nexora-full-motion.html',assertDocumentSource(documentSource),'text/html');
+      else download('nexora-motion.html',buildPreviewDoc({html,css,svg:svgCode,js}),'text/html');
       setPreviewIssue('');
     }catch(error){setPreviewIssue(error instanceof Error?error.message:'HTML export failed.');}
   }
   function selectPreset(id: string) {
     const preset = getMotionPreset(id);
     if (!preset) { setPresetId('custom'); return; }
-    setPresetId(id);
+    setSourceMode('tabs');setPresetId(id);
     setHtml(preset.html); setCss(preset.css); setJs(preset.js);setSvgCode('');
     setPreview(createSandboxSnapshot({html:preset.html,css:preset.css,svg:'',js:preset.js},clockEnabled));
     setClockFrame(0);setClockStatus(null);
@@ -126,6 +132,17 @@ function App() {
   const code = codeTab==='html'?html:codeTab==='css'?css:codeTab==='svg'?svgCode:js;
   const updateCode = codeTab==='html'?setHtml:codeTab==='css'?setCss:codeTab==='svg'?setSvgCode:setJs;
   const codeLimit = codeTab==='html'||codeTab==='svg'?200000:100000;
+  async function uploadFullHtml(file?:File){
+    if(!file)return;
+    if(file.size>DOCUMENT_LIMIT){setPreviewIssue('Full HTML file exceeds 200 KB.');return;}
+    try{
+      const source=assertDocumentSource(await file.text());
+      setDocumentSource(source);setSourceMode('document');setPresetId('custom');
+      setPreviewActive(false);setClockFrame(0);setClockStatus(null);
+      setPreviewIssue('Complete HTML loaded. Click Run preview; export uses the same source.');
+      setMobilePreview(false);
+    }catch(error){setPreviewIssue(error instanceof Error?error.message:'Invalid HTML file.');}
+  }
 
   async function makeMosaic(file?: File) {
     if (!file) return;
@@ -187,21 +204,57 @@ function App() {
     </main>}
 
     {page==='motion' && <main className="container workspace">
-      <div className="workspace-title"><div><button className="back" onClick={() => navigate('home')}>← All tools</button><h1>HTML Motion Lab</h1><p>Your code. Your preview. Entirely in the browser.</p></div><div className="buttons"><button className="secondary" onClick={exportHtml}>↓ Export HTML</button><button className="primary" onClick={runPreview}>▶ Run preview</button><button className="secondary" onClick={()=>{setPreviewActive(false);setPreviewIssue('');setMobilePreview(true);}}>■ Stop preview</button></div></div>
+      <div className="workspace-title"><div><button className="back" onClick={() => navigate('home')}>← All tools</button><h1>HTML Motion Lab</h1><p>Four-tab motion or a complete HTML file · isolated preview · local MP4.</p></div><div className="buttons"><button className="secondary" onClick={exportHtml}>↓ Export HTML</button><button className="primary" onClick={runPreview}>▶ Run preview</button><button className="secondary" onClick={()=>{setPreviewActive(false);setPreviewIssue('');setMobilePreview(true);}}>■ Stop preview</button></div></div>
       <div className="editor">
         <section className={'panel code-panel'+(mobilePreview?' mobile-hidden':'')}>
           <div className="panel-head"><b>CODE EDITOR</b><span>ISOLATED</span></div>
-          <div className="preset-bar"><label htmlFor="motion-preset">MOTION PRESET</label><select id="motion-preset" value={presetId} onChange={e=>selectPreset(e.target.value)}><option value="custom">Custom code</option>{MOTION_PRESETS.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></div>
-          <div className="tabs">{(['html','css','svg','js'] as CodeKind[]).map(t=><button key={t} className={codeTab===t?'active':''} onClick={() => setCodeTab(t)}>{t.toUpperCase()}</button>)}</div>
-          {codeTab==='svg'&&<div className="svg-insert"><button onClick={()=>{setSvgCode(SVG_EXAMPLE);setPresetId('custom');}}>Insert animated SVG example</button></div>}
-          <textarea spellCheck={false} maxLength={codeLimit} value={code} onChange={e => {updateCode(e.target.value);setPresetId('custom');}} aria-label={codeTab.toUpperCase()+' code editor'}/>
-          <p className="panel-note">Run preview to apply changes. Sandbox has no parent-origin access; remote fetch/images are blocked by CSP.</p>
+          <div className="full-doc-mode" role="group" aria-label="HTML source mode">
+            <button className={sourceMode==='tabs'?'active':''} onClick={()=>{
+              setSourceMode('tabs');setPreviewActive(false);setPreviewIssue('Press Run preview to load the four-tab source.');
+            }}>Four tabs</button>
+            <button className={sourceMode==='document'?'active':''} onClick={()=>{
+              setSourceMode('document');setPreviewActive(false);
+              setPreviewIssue('Paste a complete .html document or upload your file, then Run preview.');
+            }}>Full HTML file · WebGL</button>
+          </div>
+          {sourceMode==='tabs'?
+            <>
+              <div className="preset-bar"><label htmlFor="motion-preset">MOTION PRESET</label><select id="motion-preset" value={presetId} onChange={e=>selectPreset(e.target.value)}><option value="custom">Custom code</option>{MOTION_PRESETS.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></div>
+              <div className="tabs">{(['html','css','svg','js'] as CodeKind[]).map(t=><button key={t} className={codeTab===t?'active':''} onClick={() => setCodeTab(t)}>{t.toUpperCase()}</button>)}</div>
+              {codeTab==='svg'&&<div className="svg-insert"><button onClick={()=>{setSvgCode(SVG_EXAMPLE);setPresetId('custom');}}>Insert animated SVG example</button></div>}
+              <textarea spellCheck={false} maxLength={codeLimit} value={code} onChange={e => {
+                const next=e.target.value;
+                // Paste the user's complete .html in the existing HTML tab and
+                // seamlessly switch to the correct ONE-FILE/ESM/WebGL engine.
+                if(codeTab==='html'&&isCompleteHtml(next)&&next.trimEnd().toLowerCase().endsWith('</html>')){
+                  setDocumentSource(next);setSourceMode('document');setPreviewActive(false);
+                  setPreviewIssue('Complete HTML detected. Press Run preview to render the whole document.');
+                }else{updateCode(next);setPresetId('custom');}
+              }} aria-label={codeTab.toUpperCase()+' code editor'}/>
+              <p className="panel-note">Four-tab code runs without remote resources. Pasting a complete &lt;html&gt;...&lt;/html&gt; file in the HTML tab automatically switches to the one-file renderer.</p>
+            </>:
+            <>
+              <div className="full-doc-upload">
+                <label>↑ Import complete .html file
+                  <input type="file" accept=".html,.htm,text/html" aria-label="Import complete HTML file"
+                    onChange={e=>{void uploadFullHtml(e.target.files?.[0]);e.target.value='';}}/>
+                </label>
+                <span>HTML + CSS + importmap + module JS in ONE file</span>
+              </div>
+              <textarea spellCheck={false} maxLength={DOCUMENT_LIMIT} value={documentSource}
+                onChange={e=>setDocumentSource(e.target.value)}
+                placeholder={'<!doctype html>\n<html>\n<head>...\n<body>...\n</html>'}
+                aria-label="Full HTML document code editor"/>
+              <p className="panel-note">Experimental full HTML + WebGL: Three.js 0.172 modules are normalized to a pinned CDN (internet required). Source executes only in an opaque sandbox. Use a smaller L-system iteration count for mobile.</p>
+            </>
+          }
+
         </section>
         <section className={'panel preview-panel'+(!mobilePreview?' preview-mobile-hidden':'')}>
           <div className="panel-head"><b>PREVIEW</b><div className="ratios">{(['16:9','9:16','1:1'] as Ratio[]).map(r=><button key={r} className={r===ratio?'active':''} onClick={() => setRatio(r)}>{r}</button>)}</div></div>
           <HtmlSandbox preview={preview} active={previewActive} ratio={ratio}
             timeline={{enabled:clockEnabled,frame:clockFrame,fps:clockFps,onUpdate:setClockStatus}}/>
-          <HtmlVideoExport source={{html,css,svg:svgCode,js}}/>
+          <HtmlVideoExport source={sourceMode==='document'?{document:documentSource}:{html,css,svg:svgCode,js}}/>
           <div className="frame-clock-controls">
             <div className="frame-clock-header">
               <strong>DETERMINISTIC TIMELINE</strong>
@@ -249,7 +302,7 @@ function App() {
                   clockStatus?.state==='loading'?(clockStatus.message||'Reloading clock…'):
                   'Seeking frame '+clockFrame+'…'}
               </p>
-              <p className="frame-clock-note">Exact frame timestamps for supported CSS/WAAPI/SVG and virtual JS clocks. Rewinding replays JS from frame 0. HTML-to-MP4 is the next stage.</p>
+              <p className="frame-clock-note">Exact frame replay for supported CSS, JavaScript and WebGL canvas; heavy shaders may render slowly. Rewind reloads the isolated frame.</p>
             </>}
           </div>
           {previewIssue&&<p className="sandbox-issue" role="alert">{previewIssue}</p>}

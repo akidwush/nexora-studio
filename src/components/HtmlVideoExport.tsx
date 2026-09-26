@@ -4,7 +4,7 @@ import {supportsStreamingSave,beginMp4FilePick} from '../lib/mp4-output-sink.js'
 import {makeRenderReport} from '../lib/render-fidelity-report.js';
 
 type Size=keyof typeof HTML_VIDEO_SIZES;
-type Source={html:string;css:string;svg:string;js:string};
+type Source={html:string;css:string;svg:string;js:string;document?:never}|{document:string;html?:never;css?:never;svg?:never;js?:never};
 type Props={source:Source};
 type RawPreview={key:string;index:number;png:Blob};
 type FrameScore={frame:number;meanError:number;severeFraction:number};
@@ -33,11 +33,19 @@ export default function HtmlVideoExport({source}:Props){
   const [videoUrl,setVideoUrl]=useState('');
   const abortRef=useRef<AbortController|null>(null);
   const videoRef=useRef('');
-  const key=JSON.stringify([source.html,source.css,source.svg,source.js,size,fps,duration]);
+  const fullDocument=typeof source.document==='string';
+  const key=JSON.stringify([source.document,source.html,source.css,source.svg,source.js,size,fps,duration]);
   const previewIndex=sample==='middle'?Math.floor(fps*duration/2):
     sample==='last'?fps*duration-1:0;
   const busy=working||previewing;
-  const opts={size,fps,duration,matte};
+  // Full-document 5/8/10s durations must reach the same preflight validator
+  // as capture/encoder, rather than accidentally using legacy 1–3s rules.
+  const opts={size,fps,duration,matte,...(fullDocument?{document:source.document}:{})};
+  useEffect(()=>{
+    // Reopening the old four-tab editor after a 5/8/10s WebGL experiment
+    // must not strand its legacy 1–3s dropdown on an unsupported value.
+    if(!fullDocument)setDuration(value=>Math.min(value,3));
+  },[fullDocument]);
   const dimensions=HTML_VIDEO_SIZES[size];
   const validPreview=rawPreview?.key===key&&rawPreview.index===previewIndex?rawPreview:null;
 
@@ -106,7 +114,7 @@ export default function HtmlVideoExport({source}:Props){
   };
   const exportVideo=async()=>{
     if(busy||support!==true)return;
-    const filename='nexora-html-'+size+'-'+fps+'fps.mp4';
+    const filename='nexora-'+(fullDocument?'full-html':'html')+'-'+size+'-'+fps+'fps.mp4';
     // File pick MUST begin in the original button gesture, before dynamic
     // imports, capture work or any other await (mobile browser requirement).
     let picker:Promise<unknown>|null=null;
@@ -167,13 +175,14 @@ export default function HtmlVideoExport({source}:Props){
   };
   return <section className="html-video-export" aria-label="HTML to MP4 exporter">
     <div className="html-video-head">
-      <strong>HTML → MATCHING MP4</strong><span>SAME CAPTURE PIPELINE</span>
+      <strong>{fullDocument?'FULL HTML + WEBGL → MP4':'HTML → MATCHING MP4'}</strong><span>SAME CAPTURE PIPELINE</span>
     </div>
     <div className="html-video-settings">
       <label htmlFor="html-video-size">Output
         <select id="html-video-size" disabled={busy} value={size} onChange={event=>{
           const next=event.target.value as Size;setSize(next);
           if(next!=='compact'&&fps===60)setFps(30);
+          if(next!=='compact'&&duration>3)setDuration(3);
         }}>
           {Object.entries(HTML_VIDEO_SIZES).map(([id,info])=>
             <option key={id} value={id}>{info.label}</option>)}
@@ -189,7 +198,7 @@ export default function HtmlVideoExport({source}:Props){
       <label htmlFor="html-video-duration">Duration
         <select id="html-video-duration" disabled={busy} value={duration}
           onChange={event=>setDuration(Number(event.target.value))}>
-          {[1,2,3].map(value=><option value={value} key={value}>{value} sec</option>)}
+          {[1,2,3,...(fullDocument&&size==='compact'?[5,8,10]:[])].map(value=><option value={value} key={value}>{value} sec</option>)}
         </select>
       </label>
       <label htmlFor="html-video-matte">MP4 background

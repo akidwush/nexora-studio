@@ -75,6 +75,28 @@ try{
       const fixture=fixtures[k];
       const input={...fixture,...options};
       const preview=await captureHtmlFrame(input,sample[1]);
+      // Debug independent same-frame replay on the exact existing scene.
+      // Never weaken the strict RGBA parity check when it finds divergence.
+      const duplicated=await captureHtmlFrame(input,sample[1]);
+      const compare=async(a,b)=>{
+        const [aa,bb]=await Promise.all([createImageBitmap(a),createImageBitmap(b)]);
+        const cx=document.createElement('canvas');cx.width=options.size==='compact'?640:640;cx.height=360;
+        const ctx=cx.getContext('2d',{willReadFrequently:true});
+        ctx.clearRect(0,0,640,360);ctx.drawImage(aa,0,0);
+        const p=ctx.getImageData(0,0,640,360).data;
+        ctx.clearRect(0,0,640,360);ctx.drawImage(bb,0,0);
+        const q=ctx.getImageData(0,0,640,360).data;
+        let severe=0,minX=640,maxX=0,minY=360,maxY=0;
+        for(let i=0;i<p.length;i+=4){
+          const d=Math.max(Math.abs(p[i]-q[i]),Math.abs(p[i+1]-q[i+1]),Math.abs(p[i+2]-q[i+2]));
+          if(d>9){severe++;const pix=i/4,x=pix%640,y=Math.floor(pix/640);
+            minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);}
+        }
+        aa.close();bb.close();
+        return {severeFraction:severe/(640*360),boundingBox:severe?[minX,minY,maxX,maxY]:null};
+      };
+      const diagnostic=await compare(preview,duplicated);
+      console.log('INDEPENDENT RAW FRAME DIAGNOSTIC',fixture.id,JSON.stringify(diagnostic));
       let quality=null,report=null;
       let writes=0,fileHandle=null;
       if(k===1&&supportsStreamingSave({

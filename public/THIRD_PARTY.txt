@@ -8,3 +8,10 @@ License: Mozilla Public License 2.0 (see /licenses/MPL-2.0.txt).
 Optional standalone Studio Pro editor: https://github.com/simplearyan/studio-pro
 Pinned source commit: a3d145faeca9b08ab53bb994bb64accb2c356b89
 MPL-2.0; standalone original editor also distributes LICENSE and NOTICE in /studio-pro/.
+
+Experimental full-file WebGL document mode can load THREE.js v0.172.0 modules
+only through pinned https://cdn.jsdelivr.net/npm/three@0.172.0/ URLs.
+Source: https://github.com/mrdoob/three.js/tree/r172
+Copyright © 2010-2024 three.js authors
+License: MIT (see /licenses/THREE-MIT.txt).
+The JS packages are remotely loaded in an isolated opaque iframe and may fail offline.
