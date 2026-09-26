@@ -11,12 +11,82 @@ const CANONICAL={
   'three':CDN+'build/three.module.js',
   'three/addons/':CDN+'examples/jsm/'
 };
-const EXPECTED={
-  './three':['https://assets.codepen.io/25387/three.webgpu.min.js',CANONICAL['./three']],
-  './three/webgl':['https://esm.sh/three@0.172.0/src/renderers/WebGLRenderer.js',CANONICAL['./three/webgl']],
-  './three/tsl':['https://assets.codepen.io/25387/three.tsl.js',CANONICAL['./three/tsl']],
-  './three/addons/':['https://esm.sh/three@0.172.0/examples/jsm/',CANONICAL['./three/addons/']]
+// Accept familiar r172 import-map declarations, but NEVER load the incoming
+// URLs. Every approved alias is rewritten to ONE known Three.js module graph.
+// Do not silently mix version 0.172 with newer library or WebGPU builds.
+const THREE_VERSION='0.172.0';
+const LEGACY={
+  './three':['https://assets.codepen.io/25387/three.webgpu.min.js'],
+  'three':['https://assets.codepen.io/25387/three.webgpu.min.js'],
+  './three/tsl':['https://assets.codepen.io/25387/three.tsl.js'],
+  'three/tsl':['https://assets.codepen.io/25387/three.tsl.js']
 };
+CANONICAL['three/webgl']=CANONICAL['./three/webgl'];
+CANONICAL['three/tsl']=CANONICAL['./three/tsl'];
+CANONICAL['three/examples/jsm/']=CANONICAL['./three/addons/'];
+const CDN_PATHS={
+  'three':['','/','/build/three.module.js','/+esm'],
+  './three':['','/','/build/three.module.js','/+esm'],
+  'three/webgl':['/build/three.module.js','/src/renderers/WebGLRenderer.js'],
+  './three/webgl':['/build/three.module.js','/src/renderers/WebGLRenderer.js'],
+  'three/tsl':['/build/three.tsl.js'],
+  './three/tsl':['/build/three.tsl.js'],
+  'three/addons/':['/examples/jsm/'],
+  './three/addons/':['/examples/jsm/'],
+  'three/examples/jsm/':['/examples/jsm/']
+};
+const VENDOR_PREFIXES={
+  'esm.sh':'/three@'+THREE_VERSION,
+  'cdn.jsdelivr.net':'/npm/three@'+THREE_VERSION,
+  'unpkg.com':'/three@'+THREE_VERSION
+};
+function isKnownPinnedTarget(specifier,target){
+  if(typeof target!=='string'||target.length>300||target!==target.trim())
+    return false;
+  if(target===CANONICAL[specifier]||LEGACY[specifier]?.includes(target))
+    return true;
+  let url;
+  try{url=new URL(target);}catch{return false;}
+  if(url.protocol!=='https:'||url.username||url.password||url.port||url.hash)
+    return false;
+  const prefix=VENDOR_PREFIXES[url.hostname];
+  if(!prefix||!url.pathname.startsWith(prefix))return false;
+  const suffix=url.pathname.slice(prefix.length);
+  // ESM aliases may include explicit build targets that are discarded during
+  // normalization; reject unknown CDN query parameters and unpinned versions.
+  if(url.searchParams.size&&!(url.hostname==='esm.sh'&&
+       [...url.searchParams.keys()].every(key=>['bundle','target','dev'].includes(key))))
+    return false;
+  if(url.hostname==='cdn.jsdelivr.net'&&suffix==='/+esm'&&
+     (specifier==='three'||specifier==='./three'))return true;
+  if((specifier==='three'||specifier==='./three')&&suffix==='')
+    return url.hostname==='esm.sh';
+  return Boolean(CDN_PATHS[specifier]?.includes(suffix));
+}
+export function normalizePinnedThreeImportMap(map){
+  if(!map||typeof map!=='object'||Array.isArray(map)||
+     !map.imports||typeof map.imports!=='object'||Array.isArray(map.imports)||
+     Object.keys(map).some(key=>key!=='imports'))
+    throw Error('Only a simple pinned Three.js import map is supported.');
+  const entries=Object.entries(map.imports);
+  if(!entries.length||entries.length>10)
+    throw Error('Unsupported Three.js import map size.');
+  const imports=Object.create(null);
+  for(const [specifier,target] of entries){
+    if(!Object.hasOwn(CANONICAL,specifier)||!isKnownPinnedTarget(specifier,target)){
+      const safeName=specifier.slice(0,65);
+      throw Error('Unsupported module mapping: '+safeName+
+        '. This mode supports known Three.js '+THREE_VERSION+
+        ' CDN mappings only. Update a different version or custom URL before preview.');
+    }
+    imports[specifier]=CANONICAL[specifier];
+  }
+  // Addons import bare three. All supported source specifiers resolve to one
+  // JS module identity rather than mixing esm.sh, CodePen and jsDelivr.
+  imports.three=CANONICAL.three;
+  imports['three/addons/']=CANONICAL['three/addons/'];
+  return {imports};
+}
 const POLICY=[
  "default-src 'none'","base-uri 'none'","object-src 'none'",
  "form-action 'none'","connect-src 'none'",
@@ -82,18 +152,7 @@ export function buildFullDocument(input,{diagnostics='',timeline='',capture=''}=
   if(maps.length){
     let map;
     try{map=JSON.parse(maps[0].textContent||'');}catch{throw Error('Invalid importmap JSON.');}
-    if(!map||!map.imports||map.scopes||Object.keys(map).some(key=>key!=='imports'))
-      throw Error('Only a simple pinned Three.js importmap is supported.');
-    const keys=Object.keys(map.imports);
-    if(!keys.length||keys.length>8)throw Error('Unsupported importmap size.');
-    for(const key of keys){
-      if(!EXPECTED[key]?.includes(map.imports[key])&&CANONICAL[key]!==map.imports[key])
-        throw Error('Unsupported module mapping: '+key+'. Only Three.js 0.172 is enabled in this experiment.');
-      map.imports[key]=CANONICAL[key];
-    }
-    // Ensure addons and WebGLRenderer share ONE Three.js module instance.
-    map.imports.three=CANONICAL.three;
-    map.imports['three/addons/']=CANONICAL['three/addons/'];
+    map=normalizePinnedThreeImportMap(map);
     maps[0].textContent=JSON.stringify(map).replace(/</g,'\\u003c');
     doc.documentElement.setAttribute('data-nexora-require-module-canvas','true');
   }
