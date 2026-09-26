@@ -16,7 +16,11 @@ export function validateHtmlVideoOptions(options){
   const matte=validateMatte(options?.matte);
   if(!Object.hasOwn(HTML_VIDEO_SIZES,size))throw new Error('Unsupported HTML output size.');
   if(![24,30,60].includes(fps))throw new Error('HTML capture supports 24, 30 or 60 FPS.');
-  if(![1,2,3].includes(duration))throw new Error('HTML export supports 1–3 seconds per render.');
+  const fullDocument=typeof options?.document==='string';
+  if(!(fullDocument?[1,2,3,5,8,10]:[1,2,3]).includes(duration))
+    throw new Error(fullDocument?'Complete HTML exports allow 1–10 seconds (longer exports at 640×360).':'HTML export supports 1–3 seconds per render.');
+  if(fullDocument&&duration>3&&size!=='compact')
+    throw new Error('Long WebGL/HTML-document exports require the mobile-safe 640×360 resolution.');
   if(fps===60&&size!=='compact')
     throw new Error('60 FPS HTML export currently supports 640×360 only to protect mobile memory.');
   const {width,height}=HTML_VIDEO_SIZES[size];

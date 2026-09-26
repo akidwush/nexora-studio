@@ -68,7 +68,7 @@ export async function withHtmlCaptureSession(options,{signal}={},callback){
     const png=await new Promise((resolve,reject)=>{
       const timeout=window.setTimeout(()=>{
         if(pending?.id===id){pending=null;reject(new Error('HTML frame '+frameIndex+' timed out.'));}
-      },25000);
+      },options.document?60000:25000);
       pending={id,frame:frameIndex,timeout,resolve,reject};
       frame.contentWindow?.postMessage({
         channel:TIMELINE_CHANNEL,session,kind:'seek',id,
@@ -82,7 +82,7 @@ export async function withHtmlCaptureSession(options,{signal}={},callback){
   try{
     readyTimer=window.setTimeout(()=>{
       if(!settled){settled=true;rejectReady(new Error('HTML sandbox initialization timed out.'));}
-    },15000);
+    },options.document?30000:15000);
     frame.onload=()=>frame.contentWindow?.postMessage({
       channel:TIMELINE_CHANNEL,session,kind:'hello'
     },'*');

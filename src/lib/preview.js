@@ -1,4 +1,5 @@
 import {captureBootstrap} from './html-frame-capture.js';
+import {buildFullDocument,assertDocumentSource} from './html-document.js';
 import {timelineBootstrap} from './timeline-runtime.js';
 // First-party HTML Motion Lab sandbox. The resulting srcDoc MUST be used only in
 // iframe sandbox="allow-scripts" WITHOUT allow-same-origin or other permissions.
@@ -55,6 +56,16 @@ function diagnosticsScript(session){
   return '<script>'+code+'</script>';
 }
 export function buildPreviewDoc(input={}){
+  if(input.document!==undefined){
+    assertDocumentSource(input.document);
+    if(input.session!==undefined&&(typeof input.session!=='string'||input.session.length>120))
+      throw new Error('Invalid full-document preview session.');
+    return buildFullDocument(input,{
+      diagnostics:diagnosticsScript(input.session),
+      timeline:input.controlled?timelineBootstrap(input.session):'',
+      capture:input.controlled&&input.capture?captureBootstrap():''
+    });
+  }
   const {html,css,svg,js}=assertPreviewSize(input);
   const session=input.session;
   if(session!==undefined&&(typeof session!=='string'||session.length>120))throw new Error('Invalid preview session.');
