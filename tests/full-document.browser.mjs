@@ -162,7 +162,8 @@ try{
  await page.getByRole('button',{name:/Run preview/}).click();
  const bareDoc=await page.locator('iframe[title="Sandboxed code preview"]').getAttribute('srcdoc');
  assert.ok(!bareDoc.includes('Unsupported module mapping: three'));
- assert.match(bareDoc,/"three":"https:\\/\\/cdn\\.jsdelivr\\.net\\/npm\\/three@0\\.172\\.0\\/build\\/three\\.module\\.js"/);
+ assert.ok(bareDoc.includes('"three":"https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js"'),
+   'Bare three must be normalized to the exact pinned jsDelivr r172 module');
  assert.ok(!bareDoc.includes('https://esm.sh/three@0.172.0?bundle'),
    'ESM alias must be rewritten to the pinned CDN, not passed through.');
  await page.getByRole('button',{name:/Match export preview/}).click();
