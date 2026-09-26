@@ -30,7 +30,7 @@ function mp4Boxes(a,end){
 function codecConfig(moov){
   const bytes=new Uint8Array(moov);
   // Restrict the box search to moov metadata, not arbitrary media payload.
-  for(let i=4;i+11<bytes.length;i++){
+  for(let i=4;i+8<=bytes.length;i++){
     if(fourcc(bytes,i)!=='avcC')continue;
     if(i<4||bytes[i+4]!==1)continue;
     const length=u32(bytes,i-4);
