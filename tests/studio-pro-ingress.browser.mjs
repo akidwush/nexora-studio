@@ -51,6 +51,28 @@ try{
       htmlEditorResult:rejection(()=>window.openHtmlEditor('malicious')),
       hicEditorResult:rejection(()=>window.openHicEditor('malicious')),
       htmlPreviewResult:rejection(()=>window.preRenderHtmlClip(dangerous.clips[0])),
+      forgedTrackNameDenied:rejection(()=>window.__nexoraAssertSafeProject({
+        app:'StudioPro',version:1,
+        tracks:[{id:'v1',type:'video',name:'"><img src=x onerror=alert(1)>'}],clips:[]
+      })),
+      forgedClipIdDenied:rejection(()=>window.__nexoraAssertSafeProject({
+        app:'StudioPro',version:1,tracks:[{id:'v1',name:'V1',type:'video'}],
+        clips:[{id:"c_x');window.__evilProjectExecuted=true;//",
+          type:'text',trackId:'v1',title:'Normal title',text:'Normal text'}]
+      })),
+      nestedActiveUrlDenied:rejection(()=>window.__nexoraAssertSafeProject({
+        app:'StudioPro',version:1,tracks:[],
+        clips:[{id:'safe_clip',type:'text',title:'Normal',effects:{layout:{poster:'javascript:alert(1)'}}}]
+      })),
+      buriedJsDenied:rejection(()=>window.__nexoraAssertSafeProject({
+        app:'StudioPro',version:1,tracks:[],
+        clips:[{id:'safe_clip',type:'shape',effects:{stage:{onFrame:'parent.__evilProjectExecuted=true'}}}]
+      })),
+      goodLocalPlainTextAllowed:rejection(()=>window.__nexoraAssertSafeProject({
+        app:'StudioPro',version:1,tracks:[{id:'v1',name:'Video One',type:'video'}],
+        clips:[{id:'c_plain_text',trackId:'v1',type:'text',title:'Plain title',
+          text:"I'm making a video today!",effects:{scale:1,opacity:100}}]
+      })),
       remoteProjectDenied:rejection(()=>window.__nexoraAssertSafeProject({
         app:'StudioPro',version:1,tracks:[],clips:[{id:'x',type:'image',src:'https://private.example/api'}]
       })),
@@ -96,6 +118,11 @@ try{
     'htmlEditorResult','hicEditorResult','remoteProjectDenied','scriptProjectDenied','svgMediaRejected']){
     assert.equal(results[key],false,key+' must fail closed');
   }
+  for(const type of ['forgedTrackNameDenied','forgedClipIdDenied',
+    'nestedActiveUrlDenied','buriedJsDenied'])
+    assert.equal(results[type],false,'Persisted project schema must reject '+type);
+  assert.equal(results.goodLocalPlainTextAllowed,true,
+    'Ordinary local text edits with punctuation must remain compatible');
   assert.equal(results.validPngAllowed,true);
   assert.equal(results.pngMagicAllowed,true,'PNG signature must be recognized');
   assert.equal(results.forgedPngDenied,false,'A forged SVG cannot be imported as a PNG');
