@@ -133,6 +133,45 @@ try{
  }
  console.log('PASS: full-file UI fits mobile 360/390/412 and retains traditional four-tab editor.');
  await page.screenshot({path:'artifacts/full-html-document-webgl-desktop.png',fullPage:true});
+
+ // Negative full-document ingress tests: invalid external dependencies
+ // must fail before iframe creation; malicious inline code may run only in
+ // its opaque origin and must never read or mutate dashboard state.
+ await page.evaluate(()=>{
+   localStorage.setItem('nx-full-doc-parent-secret','untouched');
+   window.__fullDocParentModified=false;
+ });
+ const badRemote='<!doctype html><html><head><script src="https://attacker.invalid/malicious.js"></script></head><body>Remote is not allowed.</body></html>';
+ await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(badRemote);
+ await page.getByRole('button',{name:/Run preview/}).click();
+ await page.getByRole('alert').filter({hasText:/External script tags/}).waitFor();
+ assert.equal(await page.locator('iframe[title="Sandboxed code preview"]').count(),0,
+   'Invalid full-page source must stop the previous live preview, not show stale pixels.');
+ const badMap='<!doctype html><html><head><script type="importmap">'+
+   JSON.stringify({imports:{'./three':'https://attacker.invalid/three.js'}})+
+   '</script></head><body><script type="module">import * as THREE from "./three";</script></body></html>';
+ await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(badMap);
+ await page.getByRole('button',{name:/Run preview/}).click();
+ await page.getByRole('alert').filter({hasText:/Unsupported module mapping/}).waitFor();
+ const attemptedParentAccess='<!doctype html><html><head><style>body{background:#111;color:white}</style></head>'+
+   '<body><p>Opaque sandbox security</p><script>'+
+   'try{parent.document.body.dataset.pwned="yes";parent.__fullDocParentModified=true;}catch{}'+
+   'try{parent.localStorage.setItem("nx-full-doc-parent-secret","STOLEN");}catch{}'+
+   '</script></body></html>';
+ await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(attemptedParentAccess);
+ await page.getByRole('button',{name:/Run preview/}).click();
+ await page.locator('iframe[title="Sandboxed code preview"]').waitFor();
+ await wait(400);
+ const parent=await page.evaluate(()=>({
+   secret:localStorage.getItem('nx-full-doc-parent-secret'),
+   mutated:window.__fullDocParentModified,
+   body:document.body.dataset.pwned||null,
+   sandbox:document.querySelector('iframe[title="Sandboxed code preview"]')?.getAttribute('sandbox'),
+   directAccess:document.querySelector('iframe[title="Sandboxed code preview"]')?.contentDocument!==null
+ }));
+ assert.deepEqual(parent,{secret:'untouched',mutated:false,body:null,sandbox:'allow-scripts',directAccess:false});
+ console.log('PASS: full-doc remote module/script denied and malicious inline JS cannot read privileged parent DOM/storage.');
+
 }finally{
  if(browser)await browser.close();
  server.kill('SIGTERM');
