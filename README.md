@@ -123,3 +123,22 @@ are restricted to 640×360 to manage mobile RAM. In complex L-system demos,
 14 recursive iterations may exhaust mobile memory: test at 6–8 iterations
 before raising geometry complexity. See `docs/FULL_DOCUMENT_WEBGL.md` for
 browser proof, resource constraints, security and reproducible steps.
+
+## Android playback compatibility gate
+
+The HTML and native Canvas video exporters require **H.264 Baseline up to
+level 3.1**, a regular MP4 container with **Fast Start metadata before media**,
+and exactly the requested number of samples. Both memory downloads and the
+OPFS-backed StreamTarget share this contract. The latter uses Mediabunny's
+`fastStart:'reserve'` with `maximumPacketCount` to avoid buffering the
+whole MP4 while still creating a seekable standard MP4. A local, bounded
+header inspection rejects mismatched codec, malformed metadata, incorrect
+frame count or incomplete destination writes before reporting success. Existing
+three-frame decoded fidelity checks still run; no server uploads are needed.
+
+The full browser CI now creates a **real five-second, 150-frame streamed MP4**
+and runs an independent FFprobe assertion for Baseline H.264, YUV420P,
+compatible codec level, resolution, duration, sample count and metadata order.
+This is a compatibility regression, **not proof of physical Android hardware
+playback**: the originally failing MP4 was not supplied and OEM Gallery apps
+vary. A real Android sample/device test is required for confirmation.

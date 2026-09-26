@@ -121,6 +121,10 @@ try{
         onProgress:(fraction,frame,total)=>{if(frame===total)lastProgressWrites=writes;}
       });
       if(!quality||!report)throw Error('Missing quality metrics and local report for '+fixture.id);
+      if(!quality.compatibility||!report.compatibility||
+         quality.compatibility.fastStart!==true||quality.compatibility.profile!==66||
+         report.compatibility.codec!==quality.compatibility.codec)
+        throw Error('Missing or unverified Android AVC Fast Start metadata for '+fixture.id);
       if(fileHandle&&(lastProgressWrites!==0||writes===0))
         throw Error('Streaming destination was written before verification or never committed');
       const startBytes=new Uint8Array(await blob.slice(4,8).arrayBuffer());
@@ -157,6 +161,8 @@ try{
     assert.deepEqual(row.quality.frames.map(x=>x.frame),[0,12,23]);
     assert.equal(row.mp4Signature,'ftyp');
     assert.equal(row.report.result.status,'PASSED');
+    assert.equal(row.report.compatibility.fastStart,true,'Both memory and OPFS targets require Fast Start');
+    assert.equal(row.report.compatibility.profile,66,'Request and enforce Baseline AVC');
     assert.equal(row.report.source,undefined,'Do not put scene code into ordinary reports');
     assert.ok(row.quality.meanError<10,'Effect fixture exceeded mean RGB budget: '+row.id);
   }
