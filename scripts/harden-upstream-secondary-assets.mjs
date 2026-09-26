@@ -122,7 +122,7 @@ one('deep schema guard on legacy persisted project metadata',
   deepGuard+'\nfunction __nexoraAssertSafeProject(data) {');
 one('validate nested local project before any state mutation',
   '  for (const clip of data.clips) {',
-  '  __nexoraPersistedDeepCheck(data);\\n  for (const clip of data.clips) {');
+  '  __nexoraPersistedDeepCheck(data);\n  for (const clip of data.clips) {');
 
 if(code.includes("window.__NEXORA_PUBLIC_IMPORTS_ENABLED__ = true"))
   throw Error('Untrusted project imports must not be enabled');
