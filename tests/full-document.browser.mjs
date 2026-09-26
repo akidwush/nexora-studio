@@ -148,6 +148,34 @@ try{
  const threeBytes=await readFile(join('artifacts','full-document-three-r172.mp4'));
  assert.equal(threeBytes.toString('latin1',4,8),'ftyp');
  console.log('PASS: CodePen-style importmap + real pinned Three.js ShaderMaterial & BufferGeometryUtils -> verified MP4, bytes '+threeBytes.length);
+ // Regression for the reported Android error: the user's import map may
+ // declare bare "three" via a different known CDN URL instead of "./three".
+ // Both declarations must share ONE pinned r172 instance and produce video.
+ const bareThreeHtml=threeHtml
+   .replace('"./three":"https://assets.codepen.io/25387/three.webgpu.min.js",',
+     '"three":"https://esm.sh/three@0.172.0?bundle","./three":"https://assets.codepen.io/25387/three.webgpu.min.js",')
+   .replace('import * as THREE from "./three";','import * as THREE from "three";');
+ assert.notEqual(bareThreeHtml,threeHtml,'Bare-three regression fixture was not changed');
+ await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(bareThreeHtml);
+ assert.equal(await page.getByRole('button',{name:/Render MP4/}).isDisabled(),true,
+   'Changing bare-three source must require a fresh verified preview.');
+ await page.getByRole('button',{name:/Run preview/}).click();
+ const bareDoc=await page.locator('iframe[title="Sandboxed code preview"]').getAttribute('srcdoc');
+ assert.ok(!bareDoc.includes('Unsupported module mapping: three'));
+ assert.ok(bareDoc.includes('"three":"https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js"'),
+   'Bare three must be normalized to the exact pinned jsDelivr r172 module');
+ assert.ok(!bareDoc.includes('https://esm.sh/three@0.172.0?bundle'),
+   'ESM alias must be rewritten to the pinned CDN, not passed through.');
+ await page.getByRole('button',{name:/Match export preview/}).click();
+ await page.getByAltText('Exact export-matching frame').waitFor({timeout:90000});
+ const bareDownload=page.waitForEvent('download',{timeout:150000});
+ await page.getByRole('button',{name:/Render MP4/}).click();
+ const bareFile=await bareDownload;await bareFile.saveAs(join('artifacts','full-document-bare-three-r172.mp4'));
+ const bareBytes=await readFile(join('artifacts','full-document-bare-three-r172.mp4'));
+ assert.equal(bareBytes.toString('latin1',4,8),'ftyp');
+ assert.match((await page.locator('.html-video-message').textContent())||'',/verified/i);
+ console.log('PASS: user-reported bare three alias from esm.sh normalized to pinned Three.js and exported verified real H.264 MP4, bytes '+bareBytes.length);
+
  for(const width of [360,390,412]){
    await page.setViewportSize({width,height:844});
    await page.locator('.mobile-toggle button').first().click();
@@ -180,6 +208,15 @@ try{
  await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(badMap);
  await page.getByRole('button',{name:/Run preview/}).click();
  await page.getByRole('alert').filter({hasText:/Unsupported module mapping/}).waitFor();
+ const wrongVersion='<!doctype html><html><head><script type="importmap">'+
+   JSON.stringify({imports:{three:'https://esm.sh/three@0.180.0'}})+
+   '</script></head><body><script type="module">import * as THREE from "three";</script></body></html>';
+ await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(wrongVersion);
+ await page.getByRole('button',{name:/Run preview/}).click();
+ await page.getByRole('alert').filter({hasText:/Unsupported module mapping: three/}).waitFor();
+ assert.equal(await page.getByRole('button',{name:/Render MP4/}).isDisabled(),true);
+ console.log('PASS: unknown remote modules and mismatched Three.js versions remain blocked.');
+
  const attemptedParentAccess='<!doctype html><html><head><style>body{background:#111;color:white}</style></head>'+
    '<body><p>Opaque sandbox security</p><script>'+
    'try{parent.document.body.dataset.pwned="yes";parent.__fullDocParentModified=true;}catch{}'+

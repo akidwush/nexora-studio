@@ -16,6 +16,29 @@ separate its HTML, CSS or script. Pasting complete `<!doctype html>... </html>`
 into the existing HTML tab automatically switches into Full HTML Document
 Mode without rewriting the original editable source.
 
+## Three.js bare `three` import-map compatibility
+
+The original adapter recognized the user's `"./three"` CodePen map,
+but rejected a common `"three"` bare-module import-map entry
+(e.g. `"three": "https://esm.sh/three@0.172.0?bundle"`),
+producing the reported `Unsupported module mapping: three` **before**
+a browser could attempt WebGL rendering.
+
+The adapter now accepts the **known pinned Three.js r172** core, WebGL/TSL
+and addon aliases declared via matching CodePen, esm.sh, jsDelivr or unpkg
+patterns. Approved aliases are all rewritten to the **same exact pinned**
+jsDelivr r172 graph before any module is loaded; the incoming URLs are
+never fetched directly by the normalized import map. Other versions,
+arbitrary hosts, new script packages, unsafe protocols and unexpected
+CDN parameters remain blocked. This fixes an import-map compatibility
+class, not every HTML file, GPU problem or remote CDN outage.
+
+The original standalone uploaded L-system file had only `"./three"`
+aliases. A different pasted or modified source with a bare `"three"`
+mapping triggers the newly supported path *only* if its mapped URL is
+one of the recognized r172 forms. The full HTML used on device may
+still require inspection if it contains another library version.
+
 ## Supported capture path
 
 1. Parse and validate one complete bounded HTML file with DOMParser (inert

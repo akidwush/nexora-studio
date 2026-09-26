@@ -5,7 +5,7 @@ export function classifyRenderError(error){
   const message=String(error?.message||error||'Unknown rendering failure').slice(0,360);
   if(/complete.*html|missing.*head|invalid.*document|no .*html|source.*empty|document.*size limit/i.test(message))return 'INPUT';
   if(/webgl|gpu|graphics context|lost context|shader|geometry|drawing buffer/i.test(message))return 'WEBGL';
-  if(/importmap|cdn|three\.js|module.*(?:load|import)|pinned.*module/i.test(message))return 'MODULE';
+  if(/importmap|import map|unsupported module mapping|cdn|three\.js|module.*(?:load|import)|pinned.*module/i.test(message))return 'MODULE';
   if(/font/i.test(message))return 'FONT';
   if(/image|picture|svg image/i.test(message))return 'IMAGE';
   if(/network|remote|cross-origin|blob css/i.test(message))return 'EXTERNAL_RESOURCE';

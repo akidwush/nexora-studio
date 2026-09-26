@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {assertDocumentSource,isCompleteHtml,DOCUMENT_LIMIT} from '../src/lib/html-document.js';
+import {assertDocumentSource,isCompleteHtml,DOCUMENT_LIMIT,normalizePinnedThreeImportMap} from '../src/lib/html-document.js';
 import {validateHtmlVideoOptions} from '../src/lib/html-video-plan.js';
 import {buildPreviewDoc} from '../src/lib/preview.js';
 
@@ -39,4 +39,58 @@ test('full HTML reports distinguish invalid input, WebGL loss and module error w
  const source={document:'<!doctype html><html><head></head><body>private</body></html>'};
  assert.equal(makeRenderReport({}, {error:new Error('Upload or paste a complete html'),source}).source,undefined);
  assert.equal(makeRenderReport({}, {includeSource:true,source}).source.document,source.document);
+});
+
+test('common bare three and CodePen relative r172 importmap aliases normalize to one pinned graph',()=>{
+ const accepted=[
+   'https://esm.sh/three@0.172.0',
+   'https://esm.sh/three@0.172.0?bundle',
+   'https://esm.sh/three@0.172.0?target=es2022',
+   'https://cdn.jsdelivr.net/npm/three@0.172.0/+esm',
+   'https://unpkg.com/three@0.172.0/build/three.module.js',
+   'https://assets.codepen.io/25387/three.webgpu.min.js'
+ ];
+ for(const alias of accepted){
+   const result=normalizePinnedThreeImportMap({imports:{
+     three:alias,
+     './three':'https://assets.codepen.io/25387/three.webgpu.min.js',
+     './three/webgl':'https://esm.sh/three@0.172.0/src/renderers/WebGLRenderer.js',
+     './three/addons/':'https://esm.sh/three@0.172.0/examples/jsm/'
+   }});
+   const pinned='https://cdn.jsdelivr.net/npm/three@0.172.0/';
+   assert.equal(result.imports.three,pinned+'build/three.module.js');
+   assert.equal(result.imports['./three'],result.imports.three);
+   assert.equal(result.imports['./three/webgl'],result.imports.three);
+   assert.equal(result.imports['./three/addons/'],pinned+'examples/jsm/');
+   assert.equal(result.imports['three/addons/'],pinned+'examples/jsm/');
+   assert.ok(!JSON.stringify(result).includes('esm.sh'));
+ }
+ const defaults=normalizePinnedThreeImportMap({imports:{'three':'https://esm.sh/three@0.172.0'}});
+ assert.equal(defaults.imports['three/addons/'],
+   'https://cdn.jsdelivr.net/npm/three@0.172.0/examples/jsm/');
+});
+
+test('fail-closed importmap rejects unrecognized versions, hosts, credentials and custom scripts',()=>{
+ const unsafe=[
+   'https://esm.sh/three@0.180.0',
+   'https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js',
+   'https://cdn.jsdelivr.net/npm/not-three@0.172.0/build/three.module.js',
+   'https://attacker.invalid/three@0.172.0/build/three.module.js',
+   'http://esm.sh/three@0.172.0',
+   'javascript:alert(1)',
+   'https://user:password@esm.sh/three@0.172.0',
+   'https://esm.sh/three@0.172.0?external=react'
+ ];
+ for(const alias of unsafe)
+   assert.throws(()=>normalizePinnedThreeImportMap({imports:{three:alias}}),
+     /Unsupported module mapping: three/,
+     'Reject unsafe r172 alias '+alias);
+ for(const imports of [{react:'https://esm.sh/react@19'},
+   {'__proto__':'https://esm.sh/three@0.172.0',react:'https://esm.sh/react@19'}])
+   assert.throws(()=>normalizePinnedThreeImportMap({imports}));
+ assert.throws(()=>normalizePinnedThreeImportMap({imports:{three:unsafe[0]},scopes:{}}));
+});
+
+test('error categorization recognizes unsupported module mapping as a module issue',()=>{
+ assert.equal(classifyRenderError(new Error('Unsupported module mapping: three')),'MODULE');
 });
