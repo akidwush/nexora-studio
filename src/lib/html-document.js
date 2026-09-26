@@ -95,6 +95,7 @@ export function buildFullDocument(input,{diagnostics='',timeline='',capture=''}=
     map.imports.three=CANONICAL.three;
     map.imports['three/addons/']=CANONICAL['three/addons/'];
     maps[0].textContent=JSON.stringify(map).replace(/</g,'\\u003c');
+    doc.documentElement.setAttribute('data-nexora-require-module-canvas','true');
   }
   for(const script of doc.querySelectorAll('script')){
     const src=script.getAttribute('src');

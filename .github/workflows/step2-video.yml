@@ -50,6 +50,8 @@ jobs:
         run: node tests/html-video.browser.mjs
       - name: Preview-export visual fidelity and transparency regression
         run: node tests/html-fidelity.browser.mjs
+      - name: Experimental complete HTML + WebGL + pinned Three.js real Chrome MP4
+        run: node tests/full-document.browser.mjs
       - name: Stage A+B multi-effect and OPFS streaming Chrome fidelity matrix
         run: node tests/html-render-matrix.browser.mjs
       - name: Upload passing static build for preview, no deployment

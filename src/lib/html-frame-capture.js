@@ -206,6 +206,9 @@ function installFrameCapture(){
     return false;
   };
   const capture=async(width,height)=>{
+    if(document.documentElement.hasAttribute('data-nexora-require-module-canvas')&&
+      !document.querySelector('canvas'))
+      throw new Error('Pinned Three.js module failed to initialize a WebGL canvas. Check CDN/CSP or reduce scene complexity.');
     const svg=await svgDocument(width,height);
     // Blob foreignObject images taint canvas inside opaque iframes.
     // Data SVG stays origin-clean, but some Chromium versions occasionally
