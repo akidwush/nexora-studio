@@ -126,10 +126,11 @@ browser proof, resource constraints, security and reproducible steps.
 
 ## Android playback compatibility gate
 
-The HTML and native Canvas video exporters require **H.264 Baseline up to
+The experimental full-HTML video exporter now requires **H.264 Baseline up to
 level 3.1**, a regular MP4 container with **Fast Start metadata before media**,
-and exactly the requested number of samples. Both memory downloads and the
-OPFS-backed StreamTarget share this contract. The latter uses Mediabunny's
+and exactly the requested number of samples. Both HTML memory downloads and the HTML
+OPFS-backed StreamTarget share this contract. The separate native Canvas
+Video Lab encoder stays untouched pending a distinct compatibility audit. The latter uses Mediabunny's
 `fastStart:'reserve'` with `maximumPacketCount` to avoid buffering the
 whole MP4 while still creating a seekable standard MP4. A local, bounded
 header inspection rejects mismatched codec, malformed metadata, incorrect
