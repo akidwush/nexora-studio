@@ -105,7 +105,28 @@ try{
  assert.match(readyText,/ready/i);
  const begin=page.waitForEvent('download',{timeout:120000});
  await page.getByRole('button',{name:/Render MP4/}).click();
- const download=await begin;
+ begin.catch(()=>{}); // observed by the race, even if UI reports failure first
+ let downloadMonitorDone=false;
+ const download=await Promise.race([
+   begin,
+   (async()=>{
+     let last='';
+     for(let attempt=0;attempt<390&&!downloadMonitorDone;attempt++){
+       const status=(await page.locator('.html-video-message').textContent())||'';
+       if(status!==last){console.log('ANDROID HTML MP4 STATUS:',status);last=status;}
+       if(await page.locator('.html-render-failure-detail').count()){
+         const failure=await page.locator('.html-render-failure-detail').allTextContents();
+         throw Error('Full HTML MP4 failed before download: '+status+' '+failure.join(' '));
+       }
+       await wait(300);
+     }
+     if(!downloadMonitorDone)throw Error('Full HTML MP4 stalled, last status: '+last);
+     return null;
+   })()
+ ]);
+ downloadMonitorDone=true;
+ assert.ok(download,'A real MP4 download was required.');
+
  await mkdir('artifacts',{recursive:true});
  await download.saveAs(join('artifacts','full-document-webgl-30fps.mp4'));
  const bytes=await readFile(join('artifacts','full-document-webgl-30fps.mp4'));
