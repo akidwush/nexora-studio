@@ -63,7 +63,9 @@
         gl.drawArrays(gl.TRIANGLES,0,3);
         requestAnimationFrame(render);
       }
-      requestAnimationFrame(render);
+      // Establish the first GPU frame before a preview/export capture asks
+      // for timeline frame 0; subsequent animation stays RAF-controlled.
+      render(0);
     })();
   </script>
 </body>
