@@ -45,29 +45,41 @@ async function exportMp4(page,fps){
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps',String(fps));
   await page.selectOption('#html-video-duration','1');
-  const start=page.waitForEvent('download',{timeout:60000});
+  // GitHub's shared Chrome runner may need >50 seconds for a legitimate
+  // 60 FPS export with independently checked decoded frames. Guard actual
+  // stalls rather than treating slow, observable frame progress as failure.
+  // Keep a finite absolute deadline; this is not a fidelity/test bypass.
+  const started=Date.now(),absoluteLimitMs=240000,stalledLimitMs=45000;
+  let settled=false,lastProgress=started,previous='';
+  const start=page.waitForEvent('download',{timeout:absoluteLimitMs+15000});
   start.catch(()=>{});
   await page.getByRole('button',{name:/Render MP4/}).click();
-  const item=await Promise.race([
-    start,
-    (async()=>{
-      const expires=Date.now()+50000;
-      let previous='';
-      while(Date.now()<expires){
-        const message=(await page.locator('.html-video-message').textContent())??'';
-        if(message!==previous){
-          console.log('HTML capture state:',message);
-          previous=message;
+  let item;
+  try{
+    item=await Promise.race([
+      start,
+      (async()=>{
+        while(!settled&&Date.now()-started<absoluteLimitMs){
+          const message=(await page.locator('.html-video-message').textContent())??'';
+          if(message!==previous){
+            console.log('HTML capture state:',message);
+            previous=message;
+            lastProgress=Date.now();
+          }
+          const failure=page.locator('.html-render-failure-detail');
+          if(await failure.count())
+            throw new Error('HTML capture failed: '+message+' '+(await failure.allTextContents()).join(' | '));
+          if(/(?:failed|unavailable|unsupported|could not|timed out|cannot|exceeds|invalid|cancelled|mismatch|differ|error)/i.test(message)
+              && !message.includes('Checking browser encoder'))
+            throw new Error('HTML capture UI failed: '+message);
+          if(Date.now()-lastProgress>stalledLimitMs)
+            throw new Error('HTML capture stopped progressing for 45s at '+fps+' FPS. Last UI: '+previous);
+          await wait(1000);
         }
-        if(/(?:failed|unavailable|unsupported|could not|timed out|cannot|exceeds|invalid|cancelled|mismatch|differ|error)/i.test(message)
-            && !message.includes('Checking browser encoder')){
-          throw new Error('HTML capture UI failed: '+message);
-        }
-        await wait(2000);
-      }
-      throw new Error('HTML capture did not download within 50s. Last UI: '+previous);
-    })()
-  ]);
+        if(!settled)throw new Error('HTML capture exceeded 4-minute safety limit at '+fps+' FPS. Last UI: '+previous);
+      })()
+    ]);
+  }finally{settled=true;}
   const video=page.getByRole('video',{name:'Rendered HTML video playback'});
   // aria role="video" can vary across browser accessibility trees; query by element.
   await page.locator('video[aria-label="Rendered HTML video playback"]').waitFor({timeout:180000});
