@@ -52,6 +52,10 @@ try{
   });
   const errors=[];
   page.on('pageerror',error=>errors.push(String(error).slice(0,170)));
+  page.on('console',item=>{
+    if(item.text().includes('BLACKHOLE_SHADER_PROBE')||item.type()==='error')
+      console.log('SANDBOX CONSOLE:',item.text().slice(0,280));
+  });
   await page.goto(host+'/?tool=motion',{waitUntil:'domcontentloaded'});
   await page.getByRole('button',{name:'Full HTML file · WebGL'}).click();
   await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(source);
