@@ -95,6 +95,8 @@ try{
   // Replaying frame zero in a fresh sandbox must be pixel-repeatable before
   // we ask the user to trust the same independent preview/export contract.
   await page.getByRole('button',{name:/Match export preview/}).click();
+  await page.locator('.html-video-message').filter({hasText:/Replaying/i})
+    .waitFor({timeout:10000});
   await awaitMatchingFrame(page,100000);
   await page.waitForFunction(old=>{
     const img=document.querySelector('img.html-video-reference');
