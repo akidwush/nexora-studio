@@ -61,6 +61,18 @@
         gl.viewport(0,0,canvas.width,canvas.height);
         gl.uniform1f(time,ms/1000);
         gl.drawArrays(gl.TRIANGLES,0,3);
+        if(ms===0){
+          // Prove the WebGL shader actually drew pixels independently of
+          // any CSS HUD and of NEXORA's own snapshot/video comparison.
+          gl.finish();
+          const probe=new Uint8Array(4);
+          const x=Math.round(canvas.width/2+canvas.height*.25);
+          gl.readPixels(x,Math.floor(canvas.height/2),1,1,gl.RGBA,gl.UNSIGNED_BYTE,probe);
+          console.log('BLACKHOLE_SHADER_PROBE',Array.from(probe).join(','));
+          if(probe[0]<85)
+            throw Error('WebGL black-hole shader failed to paint the accretion ring. Readback: '+
+              Array.from(probe).join(',')+' GL error '+gl.getError());
+        }
         requestAnimationFrame(render);
       }
       // Establish the first GPU frame before a preview/export capture asks
