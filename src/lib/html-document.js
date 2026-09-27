@@ -113,17 +113,18 @@ for(const [url,specifier] of [
 export function normalizeKnownThreeDirectImports(source){
   if(typeof source!=='string')throw TypeError('Module source must be text.');
   let count=0,unpinned=false;
-  // Only ordinary single-line static import statements are rewritten. A
-  // dynamic import(), unknown addon, changed version or non-Three URL remains
-  // untouched and gets rejected by the existing remote-import validation.
+  // Only ordinary static import statements are rewritten, including
+  // semicolon-separated/minified imports. An import() call, changed version,
+  // unknown addon or non-Three URL is left intact and rejected separately.
+  // Keep the semicolon lookahead unconsumed, so the next import can match it.
   const code=source.replace(
-    /^([ \t]*import[ \t]+(?:(?:[^;"'\r\n]+?)[ \t]+from[ \t]+)?)(["'])([^"'\r\n]+)\2([ \t]*;?[ \t]*)$/gm,
-    (line,prefix,quote,url,suffix)=>{
+    /(^|[;\n])([ \t]*import[ \t]+(?:(?:[^;"'\r\n]+?)[ \t]+from[ \t]+)?)(["'])([^"'\r\n]+)\3(?=[ \t]*(?:;|\r?$))/gm,
+    (line,boundary,prefix,quote,url)=>{
       const pinned=DIRECT_THREE_IMPORTS[url];
       if(!pinned)return line;
       count++;
       if(!url.includes('@'+THREE_VERSION))unpinned=true;
-      return prefix+quote+pinned+quote+suffix;
+      return boundary+prefix+quote+pinned+quote;
     }
   );
   return {code,count,unpinned};

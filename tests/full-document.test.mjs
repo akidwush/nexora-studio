@@ -116,6 +116,17 @@ test('Cosmic Animation five esm.sh imports normalize to ONE explicit r172 module
    assert.equal(explicit.unpinned,false);
  }
 });
+test('Cosmic compatibility accepts packed semicolon-delimited static imports, not dynamic imports',()=>{
+ const input='import * as THREE from "https://esm.sh/three";'+
+   'import {EffectComposer} from "https://esm.sh/three/addons/postprocessing/EffectComposer.js";'+
+   'await import("https://esm.sh/three");';
+ const normalized=normalizeKnownThreeDirectImports(input);
+ assert.equal(normalized.count,2);
+ assert.ok(normalized.code.startsWith('import * as THREE from "three";'));
+ assert.ok(normalized.code.includes('from "three/addons/postprocessing/EffectComposer.js"'));
+ assert.ok(normalized.code.includes('await import("https://esm.sh/three")'));
+});
+
 test('Cosmic bridge refuses unknown hosts, unsafe versions, arbitrary addons, and dynamic imports',()=>{
  for(const url of [
   'https://esm.sh/three@0.180.0','https://esm.sh/three/addons/loaders/Unsafe.js',
