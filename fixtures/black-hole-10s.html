@@ -30,8 +30,8 @@
       'void main(){vec2 p=(gl_FragCoord.xy-.5*res)/res.y;'+
       'float r=length(p);float a=atan(p.y,p.x);'+
       'float waves=.5+.5*sin(a*8.-tm*1.7+r*36.);'+
-      'float disk=exp(-pow((r-.255)/.054,2.));'+
-      'float lens=exp(-pow((r-.173)/.012,2.));'+
+      'float disk=exp(-pow(abs((r-.255)/.054),2.));'+
+      'float lens=exp(-pow(abs((r-.173)/.012),2.));'+
       'float pulse=.77+.23*sin(tm*1.13+a*4.);'+
       'vec3 warm=mix(vec3(.92,.16,.018),vec3(1.,.8,.19),waves);'+
       'vec3 sky=vec3(.004,.006,.022)+vec3(.015,.011,.05)*(1.-smoothstep(.25,.9,r));'+
