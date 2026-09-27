@@ -136,17 +136,8 @@ function installFrameCapture(){
       }
       if(node instanceof HTMLCanvasElement){
         let data;
-        try{
-          // The complete-document bootstrap holds the exact WebGL context,
-          // so ensure drawing has finished before toDataURL snapshots it.
-          // Compact four-tab 2D canvas remains unchanged.
-          window.__nexoraSyncWebGlCanvas?.(node);
-          data=node.toDataURL('image/png');
-        }
-        catch(error){
-          if(/WebGL/i.test(String(error?.message||'')))throw error;
-          throw new Error('A tainted canvas or incomplete drawing buffer cannot be captured.');
-        }
+        try{data=node.toDataURL('image/png');}
+        catch{throw new Error('A tainted canvas cannot be captured.');}
         const img=document.createElement('img');img.src=data;
         img.width=node.width;img.height=node.height;
         copy.replaceWith(img);
