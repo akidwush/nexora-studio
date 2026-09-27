@@ -94,3 +94,37 @@ test('fail-closed importmap rejects unrecognized versions, hosts, credentials an
 test('error categorization recognizes unsupported module mapping as a module issue',()=>{
  assert.equal(classifyRenderError(new Error('Unsupported module mapping: three')),'MODULE');
 });
+
+import {normalizeKnownThreeDirectImports} from '../src/lib/html-document.js';
+test('Cosmic Animation five esm.sh imports normalize to ONE explicit r172 module graph',()=>{
+ const originals=[
+  'three','three/addons/controls/OrbitControls.js',
+  'three/addons/postprocessing/EffectComposer.js',
+  'three/addons/postprocessing/RenderPass.js',
+  'three/addons/postprocessing/UnrealBloomPass.js'
+ ];
+ const input=originals.map((path,i)=>'import {X'+i+'} from "https://esm.sh/'+path+'";').join('\n');
+ const out=normalizeKnownThreeDirectImports(input);
+ assert.equal(out.count,5);
+ assert.equal(out.unpinned,true);
+ assert.deepEqual(out.code.split('\n'),originals.map((path,i)=>
+   'import {X'+i+'} from "'+path+'";'));
+ for(const path of originals){
+   const explicit=normalizeKnownThreeDirectImports("import X from 'https://esm.sh/"+
+     path.replace('three','three@0.172.0')+"';");
+   assert.equal(explicit.count,1);
+   assert.equal(explicit.unpinned,false);
+ }
+});
+test('Cosmic bridge refuses unknown hosts, unsafe versions, arbitrary addons, and dynamic imports',()=>{
+ for(const url of [
+  'https://esm.sh/three@0.180.0','https://esm.sh/three/addons/loaders/Unsafe.js',
+  'https://esm.sh.attacker.example/three','http://esm.sh/three',
+  'https://esm.sh/three?external=react','https://esm.sh/react'
+ ]){
+   const text="import X from '"+url+"';";
+   assert.deepEqual(normalizeKnownThreeDirectImports(text),{code:text,count:0,unpinned:false});
+ }
+ const dynamic='await import("https://esm.sh/three")';
+ assert.deepEqual(normalizeKnownThreeDirectImports(dynamic),{code:dynamic,count:0,unpinned:false});
+});

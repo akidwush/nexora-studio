@@ -282,6 +282,70 @@ try{
  assert.match((await page.locator('.html-video-message').textContent())||'',/verified/i);
  console.log('PASS: user-reported bare three alias from esm.sh normalized to pinned Three.js and exported verified real H.264 MP4, bytes '+bareBytes.length);
 
+
+ // Reproduce the reported "Unlisted remote imports" case without running its
+ // 135k-particle workload in CI. All FIVE original direct URLs must resolve to
+ // one pinned Three r172 graph, including Composer + RenderPass + Bloom.
+ const cosmicHtml='<!doctype html><html><head><style>html,body{margin:0;background:#010107;overflow:hidden}canvas{display:block}</style></head>'+
+   '<body><div id="swarm-container"></div><script type="module">'+
+   'import * as THREE from "https://esm.sh/three";'+
+   'import { OrbitControls } from "https://esm.sh/three/addons/controls/OrbitControls.js";'+
+   'import { EffectComposer } from "https://esm.sh/three/addons/postprocessing/EffectComposer.js";'+
+   'import { RenderPass } from "https://esm.sh/three/addons/postprocessing/RenderPass.js";'+
+   'import { UnrealBloomPass } from "https://esm.sh/three/addons/postprocessing/UnrealBloomPass.js";'+
+   'const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera(45,640/360,.1,100);camera.position.z=8;'+
+   'const renderer=new THREE.WebGLRenderer({antialias:false});renderer.setSize(innerWidth,innerHeight);'+
+   'document.querySelector("#swarm-container").appendChild(renderer.domElement);'+
+   'const controls=new OrbitControls(camera,renderer.domElement);controls.enabled=false;'+
+   'const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));'+
+   'composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.6,.2,.1));'+
+   'const geometry=new THREE.BufferGeometry();geometry.setAttribute("position",new THREE.Float32BufferAttribute([0,0,0,.2,.5,0,-.3,.1,0],3));'+
+   'const material=new THREE.PointsMaterial({color:0x00eeff,size:110,sizeAttenuation:false});'+
+   'scene.add(new THREE.Points(geometry,material));'+
+   'function draw(t){material.color.setRGB(.15+.6*Math.min(1,t/1000),.8,1);composer.render();requestAnimationFrame(draw)}requestAnimationFrame(draw);'+
+   '</script></body></html>';
+ await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(cosmicHtml);
+ await page.getByRole('button',{name:/Run preview/}).click();
+ const cosmicDoc=await page.locator('iframe[title="Sandboxed code preview"]').getAttribute('srcdoc');
+ for(const path of ['three','three/addons/controls/OrbitControls.js',
+   'three/addons/postprocessing/EffectComposer.js',
+   'three/addons/postprocessing/RenderPass.js',
+   'three/addons/postprocessing/UnrealBloomPass.js']){
+   assert.ok(!cosmicDoc.includes('"https://esm.sh/'+path+'"'),
+     'No unpinned esm.sh import is allowed to execute: '+path);
+ }
+ assert.match(cosmicDoc,/data-nexora-pinned-three="0\.172\.0"/);
+ assert.match(cosmicDoc,/Known esm\.sh Three\.js imports were normalized/);
+ assert.match(cosmicDoc,/cdn\.jsdelivr\.net\/npm\/three@0\.172\.0\/examples\/jsm\//);
+ await page.selectOption('#html-video-fps','24');
+ await page.getByRole('button',{name:/Match export preview/}).click();
+ await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i}).waitFor({timeout:90000});
+ assert.equal(await page.getByRole('button',{name:/Render MP4/}).isEnabled(),true,
+   'All five pinned Three imports plus postprocessing must initialize before export');
+ const cosmicDownload=page.waitForEvent('download',{timeout:125000});cosmicDownload.catch(()=>{});
+ await page.getByRole('button',{name:/Render MP4/}).click();
+ let cosmicDone=false;
+ const cosmicFile=await Promise.race([
+   cosmicDownload,
+   (async()=>{
+     let state='';
+     for(let attempt=0;attempt<420&&!cosmicDone;attempt++){
+       const status=(await page.locator('.html-video-message').textContent())||'';
+       if(status!==state){console.log('COSMIC 5 IMPORT STATUS:',status);state=status;}
+       const failures=page.locator('.html-render-failure-detail');
+       if(await failures.count())
+         throw Error('Cosmic r172 bloom test failed: '+status+' '+(await failures.allTextContents()).join(' | '));
+       await wait(300);
+     }
+     if(!cosmicDone)throw Error('Cosmic r172 bloom MP4 timed out: '+state);
+   })()
+ ]);
+ cosmicDone=true;
+ await cosmicFile.saveAs(join('artifacts','cosmic-five-imports-r172-24fps.mp4'));
+ assert.equal((await readFile('artifacts/cosmic-five-imports-r172-24fps.mp4')).toString('latin1',4,8),'ftyp');
+ assert.match(await page.getByTestId('html-fidelity-score').textContent(),/Frame 0: RGB/);
+ console.log('PASS: all five versionless esm.sh Cosmic imports pinned to approved r172 graph; real postprocessed WebGL -> verified MP4');
+
  for(const width of [360,390,412]){
    await page.setViewportSize({width,height:844});
    await page.locator('.mobile-toggle button').first().click();
