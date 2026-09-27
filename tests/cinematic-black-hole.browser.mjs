@@ -1,4 +1,4 @@
-// End-to-end 10-second reference workload: a real WebGL2 shader + CSS
+// End-to-end 10-second reference workload: Canvas2D black-hole art + CSS
 // animation + inline JavaScript, submitted as ONE original HTML document.
 // Uses built production UI and native Chrome/WebCodecs/OPFS, not a fake codec.
 import {chromium} from 'playwright';
@@ -12,7 +12,7 @@ const output='artifacts/studio-black-hole-10-seconds.mp4';
 const source=await readFile(new URL('../fixtures/black-hole-10s.html',import.meta.url),'utf8');
 assert.match(source,/<style>/);
 assert.match(source,/<script>/);
-assert.match(source,/webgl2/);
+assert.match(source,/getContext\(['"]2d/);
 assert.doesNotMatch(source,/https?:\/\//);
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host',
   '127.0.0.1','--port','4199','--strictPort'],{stdio:['ignore','pipe','pipe']});
@@ -51,7 +51,7 @@ try{
   ]});
   const page=await browser.newPage({viewport:{width:1440,height:900},acceptDownloads:true});
   // Simulate only the operating-system save dialog, keeping the real engine
-  // OPFS staging, StreamTarget, WebGL2 shader and H.264 encoder untouched.
+  // OPFS staging, StreamTarget, Canvas2D renderer and H.264 encoder untouched.
   await page.addInitScript(()=>{
     const chunks=[];
     window.__cinematicOutput=chunks;
@@ -195,17 +195,17 @@ try{
   const size=640*360*3;
   assert.equal(rendered.byteLength,3*size,'FFmpeg must independently decode three actual frames.');
   // The orange accretion ring must exist and animate; the independent pixel
-  // test catches "moving HUD over a frozen / missing WebGL canvas" false PASS.
+  // test catches "moving HUD over a frozen / missing animated black-hole canvas" false PASS.
   const ringPixel=frame=>{
     const at=frame*size+(180*640+410)*3;
     return [...rendered.subarray(at,at+3)];
   };
   const colors=[ringPixel(0),ringPixel(1),ringPixel(2)];
-  assert.ok(colors[0][0]>85,'The decoded black-hole accretion ring must be visible.');
+  assert.ok(colors[0][0]>85,'The decoded animated black-hole canvas accretion ring must be visible.');
   assert.ok(Math.max(...colors.map(rgb=>rgb[1]))-
     Math.min(...colors.map(rgb=>rgb[1]))>20,
-    'The black-hole shader itself must visibly change between decoded frames: '+JSON.stringify(colors));
-  console.log('PASS: real 10s black-hole shader + CSS/JS -> 300-frame 640x360 H.264; seven real decoded-frame fidelity checks; independent FFprobe and animated-ring FFmpeg evidence. '+JSON.stringify({
+    'The black-hole canvas itself must visibly change between decoded frames: '+JSON.stringify(colors));
+  console.log('PASS: real 10s black-hole canvas + CSS/JS -> 300-frame 640x360 H.264; seven real decoded-frame fidelity checks; independent FFprobe and animated-ring FFmpeg evidence. '+JSON.stringify({
     bytes:saved.length,codec:header.codec,level:header.level,
     duration:info.format.duration,frames:video.nb_read_frames,ringSamples:colors
   }));
