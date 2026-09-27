@@ -46,13 +46,13 @@ automatically returns to the safe 3-second HD limit.
 
 ## Reproducible black-hole reference
 
-`fixtures/black-hole-10s.html` is a self-contained WebGL2 black hole plus a
+`fixtures/black-hole-10s.html` is a self-contained Canvas2D black hole plus a
 CSS-animated HUD and inline JavaScript (no outside URLs or private data).
 `tests/cinematic-black-hole.browser.mjs` submits that **whole HTML file**
-through the built Studio UI; exports 10s/30FPS via real native WebGL2,
+through the built Studio UI; exports 10s/30FPS via real Canvas2D rendering,
 WebCodecs H.264, and OPFS; requires all seven in-browser MP4 parity checkpoints;
 uses independent FFprobe to check exact duration, 300 frames and AVC Baseline;
-and independently decodes the output ring pixels through FFmpeg to reject an
+and independently decodes the output canvas ring pixels through FFmpeg to reject an
 animated overlay on top of a **frozen WebGL shader**. It also checks the
 desktop-eligible opt-in 720p preview is 1280x720 instead of upscaled 360p, and
 switching storage to normal download disables the high-risk long HD plan.
@@ -83,3 +83,15 @@ H.264 does not preserve transparency, so select a matte matching the desired
 video background; transparent reference PNG stays separate. Uploading several
 external linked CSS/JS files is **not** the same as uploading one self-contained
 HTML file: embed those files before submitting the HTML document.
+
+## Separate WebGL2 stress diagnostic
+
+`fixtures/black-hole-webgl2-diagnostic.html` retains the more demanding
+native shader example for further renderer engineering. The 10s Canvas2D
+black-hole regression does **not** establish fidelity for this shader. Its
+current independent headless Chromium runs showed intermittent GPU readback
+(visible color on one iframe but black in the next) and a false-positive
+blank shader despite preview-to-MP4 parity. This diagnostic is intentionally
+not promoted to a supported universal-WebGL claim or silently substituted
+for a user's real shader source. The existing standalone WebGL and pinned
+Three r172 shorter browser regressions remain separate release gates.
