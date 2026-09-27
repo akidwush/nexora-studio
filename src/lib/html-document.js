@@ -101,35 +101,13 @@ const POLICY=[
  "worker-src 'none'","manifest-src 'none'"
 ].join('; ');
 function installWebGlCaptureCompatibility(){
-  const contexts=new WeakMap();
-  let webglAttempts=0,webglSuccesses=0;
   const getContext=HTMLCanvasElement.prototype.getContext;
   HTMLCanvasElement.prototype.getContext=function(type,attrs){
     if(type==='webgl'||type==='webgl2'||type==='experimental-webgl'){
-      webglAttempts++;
-      const gl=getContext.call(this,type,Object.assign({},attrs||{},{preserveDrawingBuffer:true}));
-      if(gl){contexts.set(this,gl);webglSuccesses++;}
-      return gl;
+      return getContext.call(this,type,Object.assign({},attrs||{},{preserveDrawingBuffer:true}));
     }
     return getContext.call(this,type,attrs);
   };
-  // Asynchronous WebGL commands must finish on the GPU *before* a canvas
-  // image readback. Without this fence independent preview/export sessions
-  // can snapshot different (often stale or entirely black) shader frames.
-  Object.defineProperty(window,'__nexoraSyncWebGlCanvas',{
-    configurable:false,writable:false,enumerable:false,
-    value:canvas=>{
-      if(webglAttempts>0&&webglSuccesses===0)
-        throw Error('WebGL could not initialize. Verify browser GPU/WebGL2 support.');
-      const gl=contexts.get(canvas);
-      if(!gl)return false; // ordinary 2D canvas does not need a GPU fence
-      if(gl.isContextLost())throw Error('WebGL context lost before frame capture.');
-      gl.flush();
-      gl.finish(); // exact readback barrier, no arbitrary waiting or frame skip
-      if(gl.isContextLost())throw Error('WebGL context lost during frame capture.');
-      return true;
-    }
-  });
   // Screen DPR cannot silently quadruple GPU and PNG readback allocations.
   try{Object.defineProperty(window,'devicePixelRatio',{configurable:false,value:1});}catch{}
   addEventListener('webglcontextlost',event=>{
