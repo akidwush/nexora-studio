@@ -9,6 +9,18 @@ Independent creative/motion tools website. NEXORA V1 and V2 remain untouched.
 - **Studio Pro**: optional full original third-party timeline editor with MPL-2.0 attribution, built separately from pinned revision. See docs/THIRD_PARTY.md.
 - **AI Motion Generator (Step 4)**: working local prompt-to-storyboard drafts and editable preview; real Gemini-powered scene generation via a fail-closed optional Vercel API with strict server rate limits and key isolation. Exports validated scene JSON or genuine browser-rendered silent MP4. See docs/STEP4.md.
 
+## Cinematic one-file HTML/WebGL (experimental)
+A complete self-contained HTML file with inline CSS and JS can be rendered to a
+verified 10-second silent H.264 MP4 (mobile-safe 640×360, up to 60 FPS).
+Long clips now use higher bitrate and up to seven distributed decoded-video
+fidelity checkpoints. On supported desktop-class browsers, an explicitly
+selected local OPFS stream enables experimental native 1280×720 at 24/30 FPS
+for 10s; it will not be offered as an in-memory or mobile download.
+The runnable full-document WebGL/CSS/JS black-hole fixture and real Chrome
+10-second regression are documented in
+[cinematic rendering and limitations](docs/CINEMATIC_10S.md).
+Not all arbitrary HTML libraries/animations or Android media apps are supported.
+
 ## Development
 Requires Node 22+.
 
