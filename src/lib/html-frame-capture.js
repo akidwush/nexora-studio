@@ -237,6 +237,18 @@ function installFrameCapture(){
           node.getContext('2d'))directCanvas=node;
       }
     }
+    const debugFixture=document.title.includes('Black Hole')&&
+      document.title.includes('NEXORA Studio')&&!window.__nexoraDebugOnce;
+    if(debugFixture){
+      const primary=document.querySelector('canvas');
+      const d=primary?.getContext('2d')?.getImageData(410,180,1,1).data;
+      const rect=primary?.getBoundingClientRect();
+      console.error('NEXORA_CANVAS_DIAGNOSTIC',JSON.stringify({
+        root:document.documentElement.hasAttribute('data-nexora-full-document'),
+        direct:Boolean(directCanvas),rect:rect&&[rect.left,rect.top,rect.width,rect.height],
+        sample:d&&[...d]
+      }));
+    }
     const svg=await svgDocument(width,height,directCanvas);
     // Blob foreignObject images taint canvas inside opaque iframes.
     // Data SVG stays origin-clean, but some Chromium versions occasionally
@@ -268,7 +280,14 @@ function installFrameCapture(){
           try{ctx.drawImage(directCanvas,0,0,width,height);}
           catch{throw Error('Full-document Canvas2D pixels could not be captured.');}
         }
+        if(debugFixture)console.error('NEXORA_CANVAS_COMPOSITE_BEFORE_OVERLAY',
+          [...ctx.getImageData(410,180,1,1).data].join(','));
         ctx.drawImage(image,0,0,width,height);
+        if(debugFixture){
+          console.error('NEXORA_CANVAS_COMPOSITE_AFTER_OVERLAY',
+            [...ctx.getImageData(410,180,1,1).data].join(','));
+          window.__nexoraDebugOnce=true;
+        }
         if(expectsPaint&&!sampleHasAlpha(ctx,width,height))
           throw new Error('Browser returned a blank frame for a visibly painted scene.');
         const blob=await new Promise((resolve,reject)=>
