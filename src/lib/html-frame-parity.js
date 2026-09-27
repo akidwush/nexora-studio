@@ -85,6 +85,12 @@ export function rgbaSimilarity(expected,actual,{stride=1}={}){
 export async function verifyMp4Frame(videoBlob,opaqueReference,w,h,frame,fps){
   const video=document.createElement('video');
   video.muted=true;video.playsInline=true;video.preload='auto';
+  // A detached, paused video can report `seeked` before its decoded frame
+  // reaches the compositor (observed as an entirely black first frame).
+  // Keep it present but visually hidden while inspecting exact pixels.
+  Object.assign(video.style,{position:'fixed',left:'-10000px',top:'-10000px',
+    width:'1px',height:'1px',pointerEvents:'none'});
+  document.body.appendChild(video);
   const url=URL.createObjectURL(videoBlob);
   video.src=url;
   try{
@@ -98,12 +104,41 @@ export async function verifyMp4Frame(videoBlob,opaqueReference,w,h,frame,fps){
       throw new Error('Decoded MP4 dimensions differ from export preview.');
     const desired=(frame+0.35)/fps;
     if(desired<video.duration){
-      await new Promise((resolve,reject)=>{
-        const timeout=setTimeout(()=>reject(new Error('MP4 frame seeking timed out.')),15000);
-        video.onseeked=()=>{clearTimeout(timeout);resolve();};
-        video.onerror=()=>{clearTimeout(timeout);reject(new Error('MP4 video seek failed.'));};
-        video.currentTime=desired;
-      });
+      // `seeked` means the timeline moved, NOT that the requested pixels
+      // have been submitted to the compositor. Synchronize with the
+      // presentation timestamp before comparing against the matching PNG.
+      let frameCallback=0,frameTimer;
+      let readyFrame=null;
+      if(typeof video.requestVideoFrameCallback==='function'){
+        readyFrame=new Promise((resolve,reject)=>{
+          frameTimer=setTimeout(()=>reject(new Error(
+            'Decoded MP4 frame was not presented after seeking.')),8000);
+          const target=frame/fps;
+          const check=(_now,meta)=>{
+            if(Math.abs(meta.mediaTime-target)<=0.55/fps){
+              clearTimeout(frameTimer);resolve();
+            }else frameCallback=video.requestVideoFrameCallback(check);
+          };
+          frameCallback=video.requestVideoFrameCallback(check);
+        });
+        readyFrame.catch(()=>{}); // seek failure must not leave a rejected promise
+      }
+      try{
+        await new Promise((resolve,reject)=>{
+          const timeout=setTimeout(()=>reject(new Error('MP4 frame seeking timed out.')),15000);
+          video.onseeked=()=>{clearTimeout(timeout);resolve();};
+          video.onerror=()=>{clearTimeout(timeout);reject(new Error('MP4 video seek failed.'));};
+          video.currentTime=desired;
+        });
+        if(readyFrame)await readyFrame;
+        // The frame callback runs immediately before compositing. Give the
+        // GPU its paint turn; never relax the existing RGB fidelity thresholds.
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      }finally{
+        clearTimeout(frameTimer);
+        if(frameCallback&&video.cancelVideoFrameCallback)
+          video.cancelVideoFrameCallback(frameCallback);
+      }
     }
     const bitmap=await createImageBitmap(opaqueReference);
     try{
@@ -121,6 +156,7 @@ export async function verifyMp4Frame(videoBlob,opaqueReference,w,h,frame,fps){
     }finally{bitmap.close();}
   }finally{
     video.removeAttribute('src');video.load();URL.revokeObjectURL(url);
+    video.remove();
   }
 }
 

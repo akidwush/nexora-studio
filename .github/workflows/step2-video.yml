@@ -54,6 +54,10 @@ jobs:
         run: node tests/html-render-matrix.browser.mjs
       - name: Experimental complete HTML + WebGL + pinned Three.js real Chrome MP4
         run: node tests/full-document.browser.mjs
+      - name: Independent FFprobe validation of 5s real streamed Android MP4
+        run: |
+          command -v ffprobe >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+          node scripts/verify-android-mp4.mjs artifacts/android-webgl-five-seconds-stream.mp4
       - name: Upload passing static build for preview, no deployment
         if: success()
         uses: actions/upload-artifact@v4

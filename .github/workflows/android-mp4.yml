@@ -1,0 +1,42 @@
+name: Android MP4 compatibility gate
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-mp4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked dependencies
+        run: npm ci --no-fund
+      - name: Android MP4 metadata and failure-mode unit checks
+        run: node --test tests/android-mp4.test.mjs
+      - name: Build first-party isolated Studio shell
+        run: npm run build
+      - name: Install Chromium for actual H264 encoder proof
+        run: npx playwright install --with-deps chromium chrome
+      - name: Native Canvas MP4 Android compatibility
+        run: node tests/video.browser.mjs
+      - name: Five-second full HTML OPFS stream + WebGL codec proof
+        run: node tests/full-document.browser.mjs
+      - name: Independently verify streamed 5-second MP4 with FFprobe
+        run: |
+          command -v ffprobe >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+          node scripts/verify-android-mp4.mjs artifacts/android-webgl-five-seconds-stream.mp4
+      - name: Upload actual MP4 and codec report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-mp4-regression-evidence
+          path: |
+            artifacts/android-webgl-five-seconds-stream.mp4
+            artifacts/android-streaming-codec-report.json
+          if-no-files-found: ignore
+          retention-days: 7

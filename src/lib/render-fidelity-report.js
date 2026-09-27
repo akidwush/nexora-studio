@@ -12,14 +12,15 @@ export function classifyRenderError(error){
   if(/preview|frame.*differ|visually|rgba|pixel/i.test(message))return 'FIDELITY';
   if(/abort|cancel/i.test(message))return 'CANCELLED';
   if(/time|slow/i.test(message))return 'TIMEOUT';
+  if(/android|baseline|fast start|playback metadata|saved mp4|sample count|avcc/i.test(message))return 'MP4_COMPATIBILITY';
   if(/encode|mp4|webcodec/i.test(message))return 'ENCODER';
   return 'RENDER';
 }
 /**
  * @param {Record<string, any>} plan
- * @param {{mode?: string, frames?: Array<any>, error?: any, phase?: string, fixture?: string|null, source?: any, includeSource?: boolean}} details
+ * @param {{mode?: string, frames?: Array<any>, error?: any, phase?: string, fixture?: string|null, source?: any, includeSource?: boolean, compatibility?: Record<string,any>}} details
  */
-export function makeRenderReport(plan,{mode='memory',frames=[],error=null,phase='complete',fixture=null,source=null,includeSource=false}={}){
+export function makeRenderReport(plan,{mode='memory',frames=[],error=null,phase='complete',fixture=null,source=null,includeSource=false,compatibility=null}={}){
   const known=['size','width','height','fps','duration','matte'];
   const settings={};
   for(const key of known)if(plan?.[key]!==undefined)settings[key]=plan[key];
@@ -29,6 +30,9 @@ export function makeRenderReport(plan,{mode='memory',frames=[],error=null,phase=
     createdAt:new Date().toISOString(),
     settings,
     outputMode:mode,
+    ...(compatibility?{compatibility:{container:'mp4',codec:compatibility.codec,
+      profile:compatibility.profile,level:compatibility.level,
+      fastStart:compatibility.fastStart,bytes:compatibility.bytes}}:{}),
     phase,
     ...(fixture?{fixture}:{}),
     frameResults:frames.map(item=>({

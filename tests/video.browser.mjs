@@ -41,7 +41,21 @@ try{
   assert.ok(first.byteLength>1024,'native canvas preview must paint visible content');
   await page.getByRole('button',{name:/Export MP4/}).click();
   const readyLink=page.getByRole('link',{name:/Download MP4 again/});
-  await readyLink.waitFor({timeout:90000});
+  await Promise.race([
+    readyLink.waitFor({timeout:90000}),
+    (async()=>{
+      const expires=Date.now()+90000;
+      while(Date.now()<expires){
+        const status=(await page.locator('.video-status').textContent())||'';
+        if(/(?:has no|failed|invalid|missing|incomplete|mismatch|requires|cannot|unsupported|compatib|metadata|sample count)/i.test(status) &&
+           !/Preparing H.264|Encoding [0-9]+%/.test(status))
+          throw Error('Native Canvas MP4 error before download: '+status);
+        await new Promise(resolve=>setTimeout(resolve,300));
+      }
+      throw Error('Native Canvas MP4 download stalled; last UI status: '+
+        await page.locator('.video-status').textContent());
+    })()
+  ]);
   const firstDecoded=await page.evaluate(async href=>{
     const blob=await (await fetch(href)).blob();
     const bytes=new Uint8Array(await blob.arrayBuffer());
