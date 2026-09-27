@@ -175,7 +175,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
         onReport:(item:Report)=>{receivedReport=true;setReport(item);},
         onProgress:(value:number,frame:number,total:number)=>{
           setProgress(value);
-          setMessage(frame===total?'Captures complete · verifying '+criticalFrameIndices(total).length+' decoded video checkpoints…':
+          setMessage(frame===total?'Captures complete · verifying '+criticalFrameIndices(total,{duration}).length+' decoded video checkpoints…':
             'Capturing '+frame+' / '+total+' frames · '+Math.round(value*100)+'%');
         }
       });
