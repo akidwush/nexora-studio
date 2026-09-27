@@ -16,10 +16,10 @@ Long clips now use higher bitrate and up to seven distributed decoded-video
 fidelity checkpoints. On supported desktop-class browsers, an explicitly
 selected local OPFS stream enables experimental native 1280×720 at 24/30 FPS
 for 10s; it will not be offered as an in-memory or mobile download.
-The runnable full-document WebGL/CSS/JS black-hole fixture and real Chrome
+The runnable full-document Canvas2D/CSS/JS black-hole fixture and real Chrome
 10-second regression are documented in
 [cinematic rendering and limitations](docs/CINEMATIC_10S.md).
-Not all arbitrary HTML libraries/animations or Android media apps are supported.
+Not all arbitrary HTML libraries/animations, GPU-shader WebGL scenes, or Android media apps are supported.
 
 ## Development
 Requires Node 22+.
