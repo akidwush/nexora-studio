@@ -181,9 +181,10 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
       });
       if(task.signal.aborted&&!fileHandle)return;
       const url=URL.createObjectURL(blob);videoRef.current=url;setVideoUrl(url);
+      const checkpoints=criticalFrameIndices(fps*duration,{duration}).length;
       setMessage(fileHandle?
-        'Streaming save complete: first, middle and last frames verified before file commit.':
-        'Export verified: first, middle and last decoded H.264 frames match the preview.');
+        'Streaming save complete: '+checkpoints+' decoded video checkpoints verified before file commit.':
+        'Export verified: '+checkpoints+' decoded H.264 frames match the preview.');
       if(!fileHandle){const link=document.createElement('a');link.href=url;link.download=filename;link.click();}
     }catch(error){
       const dismissed=error instanceof Error&&error.name==='AbortError';
