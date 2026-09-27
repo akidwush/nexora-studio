@@ -63,6 +63,43 @@ try{
   await page.getByRole('button',{name:/Match export preview/}).click();
   await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i})
     .waitFor({timeout:100000});
+  const reference=page.getByAltText('Exact export-matching frame');
+  await reference.waitFor({timeout:30000});
+  const originalSrc=await reference.getAttribute('src');
+  await reference.evaluate(async img=>{
+    await img.decode();
+    const c=document.createElement('canvas');
+    c.width=img.naturalWidth;c.height=img.naturalHeight;
+    c.getContext('2d').drawImage(img,0,0);
+    window.__firstShaderPreview=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+  });
+  // Replaying frame zero in a fresh sandbox must be pixel-repeatable before
+  // we ask the user to trust the same independent preview/export contract.
+  await page.getByRole('button',{name:/Match export preview/}).click();
+  await page.waitForFunction(old=>{
+    const img=document.querySelector('img.html-video-reference');
+    return Boolean(img&&img.src!==old&&img.complete&&img.naturalWidth===640);
+  },originalSrc,{timeout:100000});
+  const repeated=await reference.evaluate(async img=>{
+    await img.decode();
+    const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
+    const left=window.__firstShaderPreview,right=ctx.getImageData(0,0,c.width,c.height).data;
+    let total=0,severe=0;
+    for(let i=0;i<left.length;i+=4){
+      let peak=0;
+      for(let channel=0;channel<3;channel++){
+        const d=Math.abs(left[i+channel]-right[i+channel]);
+        total+=d;peak=Math.max(peak,d);
+      }
+      if(peak>9)severe++;
+    }
+    return {meanRGB:total/(c.width*c.height*3),
+      severeFraction:severe/(c.width*c.height)};
+  });
+  console.log('INDEPENDENT BLACK-HOLE FRAME 0 PREVIEW REPEATABILITY:',JSON.stringify(repeated));
+  assert.ok(repeated.meanRGB<2&&repeated.severeFraction<.016,
+    'Two independent captures of shader frame 0 must agree before export: '+JSON.stringify(repeated));
   assert.equal(await page.getByRole('button',{name:/Render MP4/}).isEnabled(),true);
   assert.equal(await page.evaluate(()=>window.__cinematicWrites),0,
     'No destination bytes may be written before fidelity checks complete.');
