@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Black Hole — NEXORA Studio 10-second cinematic HTML fixture</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02030c}
+    #universe{display:block;width:100vw;height:100vh}
+    .hud{position:absolute;left:3%;bottom:7%;font:600 13px system-ui,sans-serif;
+      letter-spacing:.18em;color:#c2b6a1;text-shadow:0 0 12px #df7c35aa;
+      animation:glow 10s ease-in-out infinite;pointer-events:none}
+    @keyframes glow{0%{opacity:.3;transform:translateY(2px)}
+      50%{opacity:1;transform:translateY(-5px)}100%{opacity:.3;transform:translateY(2px)}}
+  </style>
+</head>
+<body>
+  <canvas id="universe" aria-label="Animated cinematic black hole and accretion disk"></canvas>
+  <div class="hud">SINGULARITY / SIMULATION</div>
+  <script>
+    (()=>{
+      const c=document.getElementById('universe');
+      c.width=innerWidth;c.height=innerHeight;
+      const ctx=c.getContext('2d',{alpha:false});
+      if(!ctx)throw Error('2D black-hole canvas is unavailable.');
+      const cx=c.width/2,cy=c.height/2;
+      function paint(ms){
+        const t=ms/1000,r=cy*.51,twist=t*.84;
+        ctx.fillStyle='#03040e';ctx.fillRect(0,0,c.width,c.height);
+        // The animated disk is pixel data painted by JavaScript, not a CSS
+        // animation pasted over a black placeholder. Deterministic time is
+        // always the RAF virtual timestamp for exact preview/video parity.
+        const peak=Math.round(125+70*Math.sin(t*.68));
+        const ring=ctx.createRadialGradient(cx,cy,r*.43,cx,cy,r*1.80);
+        ring.addColorStop(0,'#010106');
+        ring.addColorStop(.27,'#181321');
+        ring.addColorStop(.43,'rgb(255,'+peak+',43)');
+        ring.addColorStop(.52,'#c54a1d');
+        ring.addColorStop(.72,'#321523');
+        ring.addColorStop(1,'#03040e');
+        ctx.fillStyle=ring;ctx.fillRect(0,0,c.width,c.height);
+        ctx.save();ctx.translate(cx,cy);ctx.rotate(twist);
+        for(let i=0;i<7;i++){
+          const angle=i*Math.PI*2/7+t*.14;
+          ctx.save();ctx.rotate(angle);
+          ctx.strokeStyle='rgba(255,'+(95+Math.round(100*(.5+.5*Math.cos(t*.9+i))))+',51,'+
+            (.15+.16*Math.sin(t*.6+i)*Math.sin(t*.6+i))+')';
+          ctx.lineWidth=3+2*Math.sin(i+t)*Math.sin(i+t);
+          ctx.beginPath();
+          ctx.ellipse(0,0,r*1.05,r*.82,-.18,0,Math.PI*1.66);
+          ctx.stroke();ctx.restore();
+        }
+        ctx.restore();
+        // The horizon remains dark even while a colored disk sweeps behind it.
+        ctx.beginPath();ctx.arc(cx,cy,r*.60,0,Math.PI*2);
+        ctx.fillStyle='#010105';ctx.fill();
+        ctx.strokeStyle='rgba(84,135,252,.43)';ctx.lineWidth=2.2;ctx.stroke();
+        requestAnimationFrame(paint);
+      }
+      paint(0);
+    })();
+  </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 // BufferTarget remains the compatible fallback; StreamTarget writes bounded
 // chunks to temporary OPFS storage on browsers with a secure file picker.
 import {withHtmlCaptureSession,HtmlExportCancelled,captureHtmlFrame} from './html-capture-session.js';
-import {validateHtmlVideoOptions} from './html-video-plan.js';
+import {validateHtmlVideoOptions,htmlVideoBitrate} from './html-video-plan.js';
 import {drawOnMatte,assertExactRawFrame,makeMattePreview,verifyMp4Frames} from './html-frame-parity.js';
 import {createMp4Sink,criticalFrameIndices} from './mp4-output-sink.js';
 import {makeRenderReport} from './render-fidelity-report.js';
@@ -18,7 +18,9 @@ export async function encodeHtmlVideo(options,{
     if(signal?.aborted)throw new HtmlExportCancelled();
     if(typeof VideoEncoder==='undefined')
       throw new Error('WebCodecs H.264 is unavailable. Use current Chrome or Edge.');
-    const bitrate=plan.width*plan.height>=900_000?7_000_000:3_000_000;
+    if(plan.hdLong&&!fileHandle)
+      throw new Error('10-second 720p requires local streaming. Select Streaming · save to device.');
+    const bitrate=htmlVideoBitrate(plan);
     const support=await VideoEncoder.isConfigSupported({
       codec:MOBILE_AVC_CODEC,width:plan.width,height:plan.height,
       bitrate,framerate:plan.fps,hardwareAcceleration:'no-preference'
@@ -29,7 +31,7 @@ export async function encodeHtmlVideo(options,{
       throw new Error('The export reference is not a valid preview frame.');
     const {Output,Mp4OutputFormat,BufferTarget,StreamTarget,CanvasSource}=await import('mediabunny');
     if(signal?.aborted)throw new HtmlExportCancelled();
-    const important=criticalFrameIndices(plan.frames);
+    const important=criticalFrameIndices(plan.frames,{duration:plan.duration});
     const selectedIndex=reference?.index??0;
     return await withHtmlCaptureSession(options,{signal},async({capture})=>{
       const canvas=document.createElement('canvas');
@@ -103,7 +105,8 @@ export async function encodeHtmlVideo(options,{
           frame:sample.frame,
           png:await makeMattePreview(sample.png,plan.width,plan.height,plan.matte)
         });
-        // Three independent decoded H.264 checks: first, middle, last.
+        // Short exports: three decoded frames. Long cinematic renders: up to
+        // seven distributed decoded frames without storing every captured PNG.
         measured=await verifyMp4Frames(stagedVideo,references,plan.width,plan.height,plan.fps,
           result=>{measured.push(result);});
         if(signal?.aborted)throw new HtmlExportCancelled();

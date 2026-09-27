@@ -119,3 +119,28 @@ mobile editor widths 360/390/412. This test is mandatory in the PR's
 full browser workflow: if CDN or Three fails, the build is **not** claimed to
 support the supplied document yet. It does not test original
 `iterations: 14` performance on a physical phone.
+
+
+## Known Cosmic Animation esm.sh imports (draft PR #16)
+
+For the exact five static imports from the reported single-file Cosmic Animation,
+NEXORA's full-document compatibility bridge rewrites **only** these known
+\`https://esm.sh/three\` and associated OrbitControls, EffectComposer,
+RenderPass and UnrealBloomPass module URLs to the existing **pinned Three
+0.172.0** import-map graph. The original edited input is not overwritten.
+A console warning discloses normalization of unversioned/latest CDN aliases,
+which may render differently from the latest version's shader pipeline. The
+browser may still need network access to the ONE pinned jsDelivr graph.
+
+Unknown addon paths, any different version, other CDN hosts, dynamically
+imported scripts and arbitrary external resources are still rejected. The
+script CSP permits only the pinned Three package's CDN path, not the entire CDN.
+This bridge tests a reduced, reproducing WebGL/Bloom fixture (actual MP4 with
+verified first/mid/last frame checks), **not** universal compatibility with
+the original 135,000-point animation on a real Android GPU.
+
+Interaction limitations: MP4 captures the deterministic default initial scene.
+Click-based Pulsar/Galaxy/Black Hole navigation is **not** automatically
+recorded; replay would need explicit deterministic scripted transitions in
+the HTML itself. This patch does not change user particle counts, shader
+parameters, scene timing or fidelity thresholds to fake a successful export.

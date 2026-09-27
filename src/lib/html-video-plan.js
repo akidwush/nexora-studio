@@ -19,14 +19,24 @@ export function validateHtmlVideoOptions(options){
   const fullDocument=typeof options?.document==='string';
   if(!(fullDocument?[1,2,3,5,8,10]:[1,2,3]).includes(duration))
     throw new Error(fullDocument?'Complete HTML exports allow 1–10 seconds (longer exports at 640×360).':'HTML export supports 1–3 seconds per render.');
-  if(fullDocument&&duration>3&&size!=='compact')
-    throw new Error('Long WebGL/HTML-document exports require the mobile-safe 640×360 resolution.');
+  // Keep existing mobile-safe long exports unchanged. An explicit 720p/10s
+  // stream is permitted only for desktop-class users with local OPFS output.
+  const hdLong=fullDocument&&duration===10&&size==='landscape'&&
+    (fps===24||fps===30)&&options?.stream===true;
+  if(fullDocument&&duration>3&&size!=='compact'&&!hdLong)
+    throw new Error('Long WebGL/HTML exports require 640×360, except 10-second 720p at 24/30 FPS with explicit local streaming.');
   if(fps===60&&size!=='compact')
     throw new Error('60 FPS HTML export currently supports 640×360 only to protect mobile memory.');
   const {width,height}=HTML_VIDEO_SIZES[size];
   if(width*height>1_000_000||fps*duration>MAX_TIMELINE_FRAMES)
     throw new Error('HTML capture exceeds the frame or pixel budget.');
-  return Object.freeze({size,width,height,fps,duration,frames:fps*duration,matte});
+  return Object.freeze({size,width,height,fps,duration,frames:fps*duration,matte,hdLong});
+}
+// Animated gradients and shader rings need more bitrate than short flat UI
+// scenes. Preserve AVC Baseline <=3.1, and do not change existing short clips.
+export function htmlVideoBitrate(plan){
+  if(plan.width*plan.height>=900_000)return plan.hdLong?9_000_000:7_000_000;
+  return plan.duration>=8?5_000_000:3_000_000;
 }
 export function checkedCaptureMessage(message,request,plan){
   if(!message||message.kind!=='captured'||message.id!==request.id||

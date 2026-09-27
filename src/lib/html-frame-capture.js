@@ -109,7 +109,7 @@ function installFrameCapture(){
     }
     await Promise.all(loaders);
   };
-  const svgDocument=async(width,height)=>{
+  const svgDocument=async(width,height,directCanvas=null)=>{
     await validateResources();
     if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||
        width*height>1_000_000)throw new Error('Unsupported snapshot dimensions.');
@@ -133,6 +133,12 @@ function installFrameCapture(){
       }
       if(name==='image'&&node.namespaceURI?.includes('svg')){
         supportedSrc(node.getAttribute('href')||node.getAttribute('xlink:href')||'','SVG image');
+      }
+      if(node===directCanvas){
+        // Composite fullscreen Canvas2D directly: nested PNGs inside SVG
+        // foreignObject can silently disappear in some Chromium builds.
+        copy.setAttribute('data-nexora-snapshot-remove','true');
+        continue;
       }
       if(node instanceof HTMLCanvasElement){
         let data;
@@ -161,12 +167,14 @@ function installFrameCapture(){
     }
     for(const el of clone.querySelectorAll('[data-nexora-snapshot-remove]'))el.remove();
     const rootStyle=getComputedStyle(document.documentElement);
-    const rootBackground=rootStyle.backgroundColor==='rgba(0, 0, 0, 0)'?'transparent':rootStyle.backgroundColor;
+    const rootBackground=directCanvas?'transparent':
+      rootStyle.backgroundColor==='rgba(0, 0, 0, 0)'?'transparent':rootStyle.backgroundColor;
     clone.setAttribute('xmlns','http://www.w3.org/1999/xhtml');
     clone.setAttribute('style',(clone.getAttribute('style')||'')+
       ';margin:0!important;width:'+width+'px!important;height:'+height+'px!important;'+
       'overflow:hidden!important;box-sizing:border-box!important;background-color:'+
-      rootBackground+';');
+      rootBackground+';'+(directCanvas?
+        'background-color:transparent!important;background-image:none!important;':''));
     const fonts=inlineFontRules();
     if(pseudoRules.length||fonts){
       const style=document.createElement('style');
@@ -209,7 +217,39 @@ function installFrameCapture(){
     if(document.documentElement.hasAttribute('data-nexora-require-module-canvas')&&
       !document.querySelector('canvas'))
       throw new Error('Pinned Three.js module failed to initialize a WebGL canvas. Check CDN/CSP or reduce scene complexity.');
-    const svg=await svgDocument(width,height);
+    // Isolated full-document single fullscreen Canvas2D: keep the exact
+    // rendered pixels outside foreignObject, then overlay only serialized DOM.
+    // Multi-canvas, WebGL, transformed scenes retain the original renderer.
+    let directCanvas=null;
+    if(document.documentElement.hasAttribute('data-nexora-full-document')){
+      const candidates=[...document.body.querySelectorAll('canvas')];
+      if(candidates.length===1){
+        const node=candidates[0],style=getComputedStyle(node);
+        const rect=node.getBoundingClientRect();
+        const body=getComputedStyle(document.body),html=getComputedStyle(document.documentElement);
+        if(node.parentElement===document.body&&
+          Math.abs(rect.left)<1&&Math.abs(rect.top)<1&&
+          Math.abs(rect.width-width)<1&&Math.abs(rect.height-height)<1&&
+          style.display!=='none'&&style.visibility!=='hidden'&&
+          style.opacity==='1'&&style.transform==='none'&&
+          style.filter==='none'&&style.mixBlendMode==='normal'&&
+          body.backgroundImage==='none'&&html.backgroundImage==='none'&&
+          node.getContext('2d'))directCanvas=node;
+      }
+    }
+    const debugFixture=document.title.includes('Black Hole')&&
+      document.title.includes('NEXORA Studio')&&!window.__nexoraDebugOnce;
+    if(debugFixture){
+      const primary=document.querySelector('canvas');
+      const d=primary?.getContext('2d')?.getImageData(410,180,1,1).data;
+      const rect=primary?.getBoundingClientRect();
+      console.error('NEXORA_CANVAS_DIAGNOSTIC',JSON.stringify({
+        root:document.documentElement.hasAttribute('data-nexora-full-document'),
+        direct:Boolean(directCanvas),rect:rect&&[rect.left,rect.top,rect.width,rect.height],
+        sample:d&&[...d]
+      }));
+    }
+    const svg=await svgDocument(width,height,directCanvas);
     // Blob foreignObject images taint canvas inside opaque iframes.
     // Data SVG stays origin-clean, but some Chromium versions occasionally
     // return a blank raster before nested foreignObject paint completes.
@@ -231,7 +271,23 @@ function installFrameCapture(){
         const ctx=canvas.getContext('2d',{alpha:true,willReadFrequently:true});
         if(!ctx)throw new Error('RGBA browser canvas is unavailable.');
         ctx.clearRect(0,0,width,height);
+        if(directCanvas){
+          const bodyColor=getComputedStyle(document.body).backgroundColor;
+          const htmlColor=getComputedStyle(document.documentElement).backgroundColor;
+          const visible=color=>color&&color!=='transparent'&&color!=='rgba(0, 0, 0, 0)';
+          ctx.fillStyle=visible(bodyColor)?bodyColor:visible(htmlColor)?htmlColor:'rgba(0,0,0,0)';
+          ctx.fillRect(0,0,width,height);
+          try{ctx.drawImage(directCanvas,0,0,width,height);}
+          catch{throw Error('Full-document Canvas2D pixels could not be captured.');}
+        }
+        if(debugFixture)console.error('NEXORA_CANVAS_COMPOSITE_BEFORE_OVERLAY',
+          [...ctx.getImageData(410,180,1,1).data].join(','));
         ctx.drawImage(image,0,0,width,height);
+        if(debugFixture){
+          console.error('NEXORA_CANVAS_COMPOSITE_AFTER_OVERLAY',
+            [...ctx.getImageData(410,180,1,1).data].join(','));
+          window.__nexoraDebugOnce=true;
+        }
         if(expectsPaint&&!sampleHasAlpha(ctx,width,height))
           throw new Error('Browser returned a blank frame for a visibly painted scene.');
         const blob=await new Promise((resolve,reject)=>

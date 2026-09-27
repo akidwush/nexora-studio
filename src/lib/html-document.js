@@ -92,10 +92,48 @@ export function normalizePinnedThreeImportMap(map){
   imports['three/addons/']=CANONICAL['three/addons/'];
   return {imports};
 }
+// An intentionally narrow compatibility bridge for exactly the five common
+// one-file Cosmic Animation imports. No arbitrary CDN URL or library version
+// is ever executed: all accepted URLs become the pinned r172 bare graph.
+const DIRECT_THREE_IMPORTS=Object.create(null);
+for(const [url,specifier] of [
+  ['three','three'],
+  ...[
+    'controls/OrbitControls.js',
+    'postprocessing/EffectComposer.js',
+    'postprocessing/RenderPass.js',
+    'postprocessing/UnrealBloomPass.js'
+  ].map(path=>['three/addons/'+path,'three/addons/'+path])
+]){
+  DIRECT_THREE_IMPORTS['https://esm.sh/'+url]=specifier;
+  const path=url==='three'?'three@'+THREE_VERSION:
+    'three@'+THREE_VERSION+url.slice('three'.length);
+  DIRECT_THREE_IMPORTS['https://esm.sh/'+path]=specifier;
+}
+export function normalizeKnownThreeDirectImports(source){
+  if(typeof source!=='string')throw TypeError('Module source must be text.');
+  let count=0,unpinned=false;
+  // Only ordinary static import statements are rewritten, including
+  // semicolon-separated/minified imports. An import() call, changed version,
+  // unknown addon or non-Three URL is left intact and rejected separately.
+  // Keep the semicolon lookahead unconsumed, so the next import can match it.
+  const code=source.replace(
+    /(^|[;\n])([ \t]*import[ \t]+(?:(?:[^;"'\r\n]+?)[ \t]+from[ \t]+)?)(["'])([^"'\r\n]+)\3(?=[ \t]*(?:;|\r?$))/gm,
+    (line,boundary,prefix,quote,url)=>{
+      const pinned=DIRECT_THREE_IMPORTS[url];
+      if(!pinned)return line;
+      count++;
+      if(!url.includes('@'+THREE_VERSION))unpinned=true;
+      return boundary+prefix+quote+pinned+quote;
+    }
+  );
+  return {code,count,unpinned};
+}
+
 const POLICY=[
  "default-src 'none'","base-uri 'none'","object-src 'none'",
  "form-action 'none'","connect-src 'none'",
- "script-src 'unsafe-inline' https://cdn.jsdelivr.net",
+ "script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/three@0.172.0/",
  "style-src 'unsafe-inline'","img-src data: blob:","font-src data:",
  "media-src data: blob:","frame-src 'none'","child-src 'none'",
  "worker-src 'none'","manifest-src 'none'"
@@ -161,6 +199,7 @@ export function buildFullDocument(input,{diagnostics='',timeline='',capture=''}=
     maps[0].textContent=JSON.stringify(map).replace(/</g,'\\u003c');
     doc.documentElement.setAttribute('data-nexora-require-module-canvas','true');
   }
+  let recognizedDirectImports=0,hadUnpinnedDirectImports=false;
   for(const script of doc.querySelectorAll('script')){
     const src=script.getAttribute('src');
     if(src){
@@ -174,9 +213,28 @@ export function buildFullDocument(input,{diagnostics='',timeline='',capture=''}=
     const type=(script.getAttribute('type')||'').toLowerCase().trim();
     if(type&&!['module','importmap','text/javascript','application/javascript'].includes(type))
       throw Error('Unsupported full-document script type: '+type);
+    if(type==='module'){
+      const converted=normalizeKnownThreeDirectImports(script.textContent||'');
+      script.textContent=converted.code;
+      recognizedDirectImports+=converted.count;
+      hadUnpinnedDirectImports||=converted.unpinned;
+    }
     if(/\bimport\s*(?:\(|[\s\S]*?\bfrom\s*)['"]\s*(?:https?:|\/\/|data:|blob:)/.test(script.textContent||''))
-      throw Error('Unlisted remote imports are not supported by the experimental document renderer.');
+      throw Error('Unlisted remote imports are not supported. Use only supported pinned Three.js r172 modules, without other CDN imports.');
   }
+  if(recognizedDirectImports){
+    if(!maps.length){
+      const map=doc.createElement('script');
+      map.setAttribute('type','importmap');
+      map.textContent=JSON.stringify({imports:{
+        three:CANONICAL.three,
+        'three/addons/':CANONICAL['three/addons/']
+      }});
+      doc.head.insertBefore(map,doc.head.firstChild);
+    }
+    doc.documentElement.setAttribute('data-nexora-pinned-three',THREE_VERSION);
+  }
+  doc.documentElement.setAttribute('data-nexora-full-document','true');
   const webgl='<script>('+installWebGlCaptureCompatibility.toString()+')();</script>';
   // Keep original script/importmap order; compatibility and virtual clock MUST
   // run before user scripts. Only ever use this within opaque sandbox srcdoc.
@@ -184,6 +242,9 @@ export function buildFullDocument(input,{diagnostics='',timeline='',capture=''}=
   const prep='<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
     '<meta name="referrer" content="no-referrer">'+
     '<meta http-equiv="Content-Security-Policy" content="'+POLICY+'">'+
-    webgl+diagnostics+timeline+capture;
+    webgl+diagnostics+
+    (hadUnpinnedDirectImports?
+      '<script>console.warn("Known esm.sh Three.js imports were normalized to NEXORA pinned r172. Visual behavior may differ from unversioned/latest Three.js; interactive button clicks are not automatically replayed in MP4.");</script>':'')+
+    timeline+capture;
   return '<!doctype html>'+html.replace(/<head([^>]*)>/i,(match)=>match+prep);
 }
