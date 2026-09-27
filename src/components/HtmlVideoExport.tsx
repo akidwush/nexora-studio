@@ -1,5 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
-import {HTML_VIDEO_SIZES,validateHtmlVideoOptions} from '../lib/html-video-plan.js';
+import {HTML_VIDEO_SIZES,validateHtmlVideoOptions,htmlVideoBitrate} from '../lib/html-video-plan.js';
+import {criticalFrameIndices} from '../lib/mp4-output-sink.js';
+import {MOBILE_AVC_CODEC} from '../lib/android-mp4.js';
 import {supportsStreamingSave,beginMp4FilePick} from '../lib/mp4-output-sink.js';
 import {makeRenderReport} from '../lib/render-fidelity-report.js';
 import {assertDocumentSource} from '../lib/html-document.js';
@@ -29,6 +31,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
   const [includeSource,setIncludeSource]=useState(false);
   const [saveMode,setSaveMode]=useState<'download'|'stream'>('download');
   const [streamAvailable,setStreamAvailable]=useState(false);
+  const [hdDesktop,setHdDesktop]=useState(false);
   const [rawPreview,setRawPreview]=useState<RawPreview|null>(null);
   const [matteUrl,setMatteUrl]=useState('');
   const [alphaUrl,setAlphaUrl]=useState('');
@@ -37,13 +40,19 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
   const abortRef=useRef<AbortController|null>(null);
   const videoRef=useRef('');
   const fullDocument=typeof source.document==='string';
+  // A high-resolution ten-second render is an explicit desktop-class local
+  // streaming option, not an accidental huge in-memory export on Android.
+  const hdLong=fullDocument&&size==='landscape'&&duration===10&&
+    saveMode==='stream'&&hdDesktop;
+  const longDurationMenu=fullDocument&&(size==='compact'||
+    (size==='landscape'&&saveMode==='stream'&&hdDesktop));
   const key=JSON.stringify([source.document,source.html,source.css,source.svg,source.js,size,fps,duration]);
   const previewIndex=sample==='middle'?Math.floor(fps*duration/2):
     sample==='last'?fps*duration-1:0;
   const busy=working||previewing;
   // Full-document 5/8/10s durations must reach the same preflight validator
   // as capture/encoder, rather than accidentally using legacy 1–3s rules.
-  const opts={size,fps,duration,matte,...(fullDocument?{document:source.document}:{})};
+  const opts={size,fps,duration,matte,stream:hdLong,...(fullDocument?{document:source.document}:{})};
   useEffect(()=>{
     // Reopening the old four-tab editor after a 5/8/10s WebGL experiment
     // must not strand its legacy 1–3s dropdown on an unsupported value.
@@ -62,19 +71,27 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
   const renderBlockedReason=documentProblem||(!sourceReady&&fullDocument?
     'Run preview with the current complete HTML file before capturing frames.':'');
 
-  useEffect(()=>{setStreamAvailable(supportsStreamingSave(window));},[]);
+  useEffect(()=>{
+    const stream=supportsStreamingSave(window);
+    setStreamAvailable(stream);
+    const ram=(navigator as Navigator & {deviceMemory?:number}).deviceMemory;
+    // Browser memory hints are conservative and only affect opt-in HD mode.
+    // No claim that hardware meeting this hint can render arbitrary scenes.
+    setHdDesktop(stream&&typeof ram==='number'&&ram>=8&&
+      window.matchMedia('(pointer:fine)').matches);
+  },[]);
   useEffect(()=>{
     let mounted=true;setSupport(null);
     if(typeof VideoEncoder==='undefined'){setSupport(false);return()=>{mounted=false;};}
     const info=HTML_VIDEO_SIZES[size];
     VideoEncoder.isConfigSupported({
-      codec:'avc1.42001f',width:info.width,height:info.height,
-      bitrate:info.width*info.height>=900000?7000000:3000000,
+      codec:MOBILE_AVC_CODEC,width:info.width,height:info.height,
+      bitrate:htmlVideoBitrate({...info,duration,hdLong}),
       framerate:fps,hardwareAcceleration:'no-preference'
     }).then(result=>{if(mounted)setSupport(Boolean(result.supported));})
       .catch(()=>{if(mounted)setSupport(false);});
     return()=>{mounted=false;};
-  },[size,fps]);
+  },[size,fps,duration,hdLong]);
   useEffect(()=>{
     // A code/FPS/size change invalidates any previously captured preview and
     // exported video. Never display mismatched stale visual results.
@@ -127,7 +144,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
   };
   const exportVideo=async()=>{
     if(busy||support!==true||!exportReady)return;
-    const filename='nexora-'+(fullDocument?'full-html':'html')+'-'+size+'-'+fps+'fps.mp4';
+    const filename='nexora-'+(fullDocument?'full-html':'html')+'-'+size+'-'+fps+'fps-'+duration+'s.mp4';
     // File pick MUST begin in the original button gesture, before dynamic
     // imports, capture work or any other await (mobile browser requirement).
     let picker:Promise<unknown>|null=null;
@@ -158,7 +175,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
         onReport:(item:Report)=>{receivedReport=true;setReport(item);},
         onProgress:(value:number,frame:number,total:number)=>{
           setProgress(value);
-          setMessage(frame===total?'Captures complete · verifying all 3 encoded video frames…':
+          setMessage(frame===total?'Captures complete · verifying '+criticalFrameIndices(total).length+' decoded video checkpoints…':
             'Capturing '+frame+' / '+total+' frames · '+Math.round(value*100)+'%');
         }
       });
@@ -195,7 +212,8 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
         <select id="html-video-size" disabled={busy} value={size} onChange={event=>{
           const next=event.target.value as Size;setSize(next);
           if(next!=='compact'&&fps===60)setFps(30);
-          if(next!=='compact'&&duration>3)setDuration(3);
+          if(next!=='compact'&&duration>3&&!(next==='landscape'&&
+            hdDesktop&&saveMode==='stream'&&duration===10))setDuration(3);
         }}>
           {Object.entries(HTML_VIDEO_SIZES).map(([id,info])=>
             <option key={id} value={id}>{info.label}</option>)}
@@ -211,7 +229,8 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
       <label htmlFor="html-video-duration">Duration
         <select id="html-video-duration" disabled={busy} value={duration}
           onChange={event=>setDuration(Number(event.target.value))}>
-          {[1,2,3,...(fullDocument&&size==='compact'?[5,8,10]:[])].map(value=><option value={value} key={value}>{value} sec</option>)}
+          {[1,2,3,...(fullDocument&&size==='compact'?[5,8,10]:
+            longDurationMenu?[10]:[])].map(value=><option value={value} key={value}>{value} sec</option>)}
         </select>
       </label>
       <label htmlFor="html-video-matte">MP4 background
@@ -220,7 +239,11 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
       </label>
       <label htmlFor="html-video-storage">Storage method
         <select id="html-video-storage" value={saveMode} disabled={busy}
-          onChange={event=>setSaveMode(event.target.value as 'download'|'stream')}>
+          onChange={event=>{
+            const next=event.target.value as 'download'|'stream';
+            setSaveMode(next);
+            if(next==='download'&&size==='landscape'&&duration>3)setDuration(3);
+          }}>
           <option value="download">Compatible download</option>
           {streamAvailable&&<option value="stream">Streaming · save to device</option>}
         </select>
@@ -273,7 +296,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
       'H.264 unavailable in this browser.':'Generate a matching frame preview before exporting.'
     )}</p>
     {quality&&<div className="html-fidelity-score" data-testid="html-fidelity-score">
-      Verified 3-frame preview ↔ MP4 · worst mean RGB error {quality.meanError.toFixed(2)}
+      Verified {quality.frames.length}-frame preview ↔ MP4 · worst mean RGB error {quality.meanError.toFixed(2)}
       {' · '}large-error pixels {(quality.severeFraction*100).toFixed(2)}%
       <div className="html-video-frame-scores">{quality.frames.map(item=><span key={item.frame}>
         Frame {item.frame}: RGB {item.meanError.toFixed(2)}, severe {(item.severeFraction*100).toFixed(2)}%
@@ -307,7 +330,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
     </>}
     <p className="html-video-limit">Streaming uses temporary device storage and only writes the selected file after parity checks. No server uploads. Compatible download is always available.</p>
     <p className="html-video-limit">{fullDocument?
-      'Complete HTML/WebGL uses only the pinned Three.js 0.172 import map. It needs an available CDN and browser GPU. Extended 5/8/10 second exports are limited to 640×360.':
+      'Complete HTML/WebGL uses only pinned Three.js r172 and embedded assets. 5/8/10s at 640×360; on supported desktop browsers, 10s at 720p requires Streaming · save to device. Longer exports verify up to seven decoded frames.':
       'Self-contained HTML/CSS/SVG/JS with local or embedded assets only. Maximum 3 seconds; 60 FPS at 640×360.'}
       {' '}All successful exports retain preview and decoded-video parity checks.</p>
   </section>;
