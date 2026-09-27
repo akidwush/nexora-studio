@@ -31,7 +31,7 @@ export async function encodeHtmlVideo(options,{
       throw new Error('The export reference is not a valid preview frame.');
     const {Output,Mp4OutputFormat,BufferTarget,StreamTarget,CanvasSource}=await import('mediabunny');
     if(signal?.aborted)throw new HtmlExportCancelled();
-    const important=criticalFrameIndices(plan.frames);
+    const important=criticalFrameIndices(plan.frames,{duration:plan.duration});
     const selectedIndex=reference?.index??0;
     return await withHtmlCaptureSession(options,{signal},async({capture})=>{
       const canvas=document.createElement('canvas');
