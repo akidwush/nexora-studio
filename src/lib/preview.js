@@ -44,11 +44,11 @@ function diagnosticsScript(session){
   const code=[
     '(function(){',
     'const session='+id+', channel='+channel+';let entries=0;',
-    'const emit=(level,message)=>{if(++entries>40)return;try{parent.postMessage({channel,session,level,message:String(message).slice(0,240)},"*");}catch{}};',
+    'const emit=(level,message,fatal=false)=>{if(++entries>40)return;try{parent.postMessage({channel,session,level,fatal,message:String(message).slice(0,240)},"*");}catch{}};',
     'const stringify=value=>{try{return typeof value==="string"?value:JSON.stringify(value)??String(value);}catch{return String(value);}};',
     'for(const level of ["log","warn","error"]){const previous=console[level];console[level]=(...args)=>{emit(level,args.map(stringify).join(" "));if(typeof previous==="function")previous.apply(console,args);};}',
-    'addEventListener("error",event=>emit("error",event.message||"Preview script error"));',
-    'addEventListener("unhandledrejection",event=>emit("error",String(event.reason)));',
+    'addEventListener("error",event=>emit("error",event.message||"Preview script error",true));',
+    'addEventListener("unhandledrejection",event=>emit("error",String(event.reason),true));',
     'addEventListener("securitypolicyviolation",event=>emit("warn","Blocked by CSP: "+event.violatedDirective));',
     'addEventListener("DOMContentLoaded",()=>emit("ready","HTML / CSS / SVG / JS preview loaded."));',
     '})();'
