@@ -177,6 +177,7 @@ export function buildFullDocument(input,{diagnostics='',timeline='',capture=''}=
     if(/\bimport\s*(?:\(|[\s\S]*?\bfrom\s*)['"]\s*(?:https?:|\/\/|data:|blob:)/.test(script.textContent||''))
       throw Error('Unlisted remote imports are not supported by the experimental document renderer.');
   }
+  doc.documentElement.setAttribute('data-nexora-full-document','true');
   const webgl='<script>('+installWebGlCaptureCompatibility.toString()+')();</script>';
   // Keep original script/importmap order; compatibility and virtual clock MUST
   // run before user scripts. Only ever use this within opaque sandbox srcdoc.
