@@ -19,12 +19,20 @@ if(streams.length!==1)throw Error('Expected one H.264 track; found '+streams.len
 const video=streams[0];
 const expected={
   codec_name:'h264',profile:['Baseline','Constrained Baseline'],
-  level:31,pix_fmt:'yuv420p',width:640,height:360
+  pix_fmt:'yuv420p',width:640,height:360
 };
 for(const [key,want] of Object.entries(expected)){
   if(Array.isArray(want)?!want.includes(video[key]):video[key]!==want)
     throw Error('5s Android MP4 '+key+' mismatch. Expected '+JSON.stringify(want)+', got '+JSON.stringify(video[key]));
 }
+// AVC encoders may legitimately negotiate Baseline 3.0 even when we
+// request a 3.1 ceiling. Level 3.0 is sufficient at 640x360/30fps.
+// Confirm FFprobe agrees with the actual avcC level; never demand an
+// unnecessary exact 3.1 or accept a higher incompatible level.
+if(!Number.isInteger(video.level)||video.level<10||video.level>31||
+   video.level!==header.level)
+  throw Error('5s Android MP4 level must match avcC and be <=3.1; got '+
+    video.level+' / '+header.level);
 if(+video.nb_read_frames!==150)
   throw Error('FFprobe decoded '+video.nb_read_frames+' frames, expected 150.');
 const seconds=Number(media.format?.duration);
