@@ -85,13 +85,19 @@ try{
   const reference=page.getByAltText('Exact export-matching frame');
   await reference.waitFor({timeout:30000});
   const originalSrc=await reference.getAttribute('src');
-  await reference.evaluate(async img=>{
+  const previewProof=await reference.evaluate(async img=>{
     await img.decode();
     const c=document.createElement('canvas');
     c.width=img.naturalWidth;c.height=img.naturalHeight;
-    c.getContext('2d').drawImage(img,0,0);
-    window.__firstShaderPreview=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
+    window.__firstShaderPreview=ctx.getImageData(0,0,c.width,c.height).data;
+    const sample=(x,y)=>[...ctx.getImageData(x,y,1,1).data];
+    return {ring:sample(410,180),horizon:sample(320,180)};
   });
+  console.log('BLACK-HOLE FIRST FRAME PREVIEW PIXELS:',JSON.stringify(previewProof));
+  assert.ok(previewProof.ring[0]>85&&previewProof.horizon[0]<50,
+    'Original preview must show the actual black-hole canvas before exporting: '+
+      JSON.stringify(previewProof));
   // Replaying frame zero in a fresh sandbox must be pixel-repeatable before
   // we ask the user to trust the same independent preview/export contract.
   await page.getByRole('button',{name:/Match export preview/}).click();
