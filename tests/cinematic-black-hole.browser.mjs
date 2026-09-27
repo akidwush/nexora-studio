@@ -20,6 +20,22 @@ let serverLog='';
 server.stdout.on('data',part=>serverLog+=String(part));
 server.stderr.on('data',part=>serverLog+=String(part));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function awaitMatchingFrame(page,timeoutMs){
+  const deadline=Date.now()+timeoutMs;
+  let last='';
+  while(Date.now()<deadline){
+    const status=(await page.locator('.html-video-message').textContent())||'';
+    if(status!==last){console.log('PREVIEW DIAGNOSTIC:',status);last=status;}
+    const detail=page.locator('.html-render-failure-detail');
+    if(await detail.count())
+      throw Error('Matching preview failed: '+status+' / '+(await detail.allTextContents()).join(' | '));
+    if(/frame 0 ready/i.test(status))return;
+    if(/script failed|preview failed|WebGL context|shader|unsupported module|could not initialize/i.test(status))
+      throw Error('Matching preview failed early: '+status);
+    await wait(300);
+  }
+  throw Error('Matching preview did not finish: '+last);
+}
 let browser;
 try{
   let ready=false;
@@ -65,8 +81,7 @@ try{
   await page.selectOption('#html-video-duration','10');
   await page.selectOption('#html-video-storage','stream');
   await page.getByRole('button',{name:/Match export preview/}).click();
-  await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i})
-    .waitFor({timeout:100000});
+  await awaitMatchingFrame(page,100000);
   const reference=page.getByAltText('Exact export-matching frame');
   await reference.waitFor({timeout:30000});
   const originalSrc=await reference.getAttribute('src');
@@ -80,10 +95,11 @@ try{
   // Replaying frame zero in a fresh sandbox must be pixel-repeatable before
   // we ask the user to trust the same independent preview/export contract.
   await page.getByRole('button',{name:/Match export preview/}).click();
+  await awaitMatchingFrame(page,100000);
   await page.waitForFunction(old=>{
     const img=document.querySelector('img.html-video-reference');
     return Boolean(img&&img.src!==old&&img.complete&&img.naturalWidth===640);
-  },originalSrc,{timeout:100000});
+  },originalSrc,{timeout:30000});
   const repeated=await reference.evaluate(async img=>{
     await img.decode();
     const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
@@ -198,8 +214,7 @@ try{
   await page.selectOption('#html-video-size','landscape');
   assert.equal(await page.locator('#html-video-duration').inputValue(),'10');
   await page.getByRole('button',{name:/Match export preview/}).click();
-  await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i})
-    .waitFor({timeout:150000});
+  await awaitMatchingFrame(page,150000);
   const hdDimensions=await page.getByAltText('Exact export-matching frame')
     .evaluate(img=>({width:img.naturalWidth,height:img.naturalHeight}));
   assert.deepEqual(hdDimensions,{width:1280,height:720},
