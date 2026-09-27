@@ -36,10 +36,12 @@ test('ten-second cinematic HTML verifies seven spread decoded frames and uses hi
   });
   assert.equal(long.frames,300);
   assert.equal(htmlVideoBitrate(long),5_000_000);
-  assert.deepEqual(criticalFrameIndices(300),[0,50,100,150,200,250,299]);
+  assert.deepEqual(criticalFrameIndices(300,{duration:10}),[0,50,100,150,200,250,299]);
   assert.deepEqual(criticalFrameIndices(150),[0,75,149]);
-  assert.deepEqual(criticalFrameIndices(192),[0,48,96,144,191]);
+  assert.deepEqual(criticalFrameIndices(192,{duration:8}),[0,48,96,144,191]);
   assert.deepEqual(criticalFrameIndices(30),[0,15,29]);
+  assert.deepEqual(criticalFrameIndices(180),[0,90,179]);
+  assert.deepEqual(criticalFrameIndices(300,{duration:5}),[0,150,299]);
   assert.deepEqual(criticalFrameIndices(1),[0]);
 });
 test('10-second 720p is explicit local stream only, never a hidden mobile allocation',()=>{
