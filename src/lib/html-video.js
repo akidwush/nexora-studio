@@ -52,10 +52,22 @@ export async function encodeHtmlVideo(options,{
       const captured=new Map();
       try{
         stage='capture';
+        // Capture and paint frame zero BEFORE starting the output encoder.
+        // Some Chrome/WebCodecs implementations otherwise initialize the
+        // CanvasSource from its untouched black backing store. Never treat a
+        // black first encoded frame as a matching preview.
+        const firstPng=await capture(0);
+        if(signal?.aborted)throw new HtmlExportCancelled();
+        const firstBitmap=await createImageBitmap(firstPng);
+        try{
+          if(firstBitmap.width!==plan.width||firstBitmap.height!==plan.height)
+            throw new Error('First captured PNG dimensions changed.');
+          drawOnMatte(ctx,firstBitmap,plan.width,plan.height,plan.matte);
+        }finally{firstBitmap.close();}
         await output.start();started=true;
         for(let index=0;index<plan.frames;index++){
           if(signal?.aborted)throw new HtmlExportCancelled();
-          const png=await capture(index);
+          const png=index===0?firstPng:await capture(index);
           const bitmap=await createImageBitmap(png);
           try{
             if(bitmap.width!==plan.width||bitmap.height!==plan.height)
