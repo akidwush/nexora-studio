@@ -8,7 +8,12 @@ export function supportsStreamingSave(scope=globalThis){
 }
 export function criticalFrameIndices(frames){
   if(!Number.isInteger(frames)||frames<1)throw new RangeError('Invalid video frame count.');
-  return [...new Set([0,Math.floor(frames/2),frames-1])].sort((a,b)=>a-b);
+  // Five seconds and shorter retain the existing three decoded checks.
+  // For 8-10s animations inspect evenly distributed frames: catching a
+  // frozen, blank, or broken section between an otherwise correct start/end.
+  const marks=frames>240?[0,1/6,1/3,1/2,2/3,5/6,1]:
+    frames>150?[0,1/4,1/2,3/4,1]:[0,1/2,1];
+  return [...new Set(marks.map(f=>f===1?frames-1:Math.floor(frames*f)))].sort((a,b)=>a-b);
 }
 export async function createMp4Sink({fileHandle,BufferTarget,StreamTarget,scope=globalThis}){
   if(!fileHandle){
