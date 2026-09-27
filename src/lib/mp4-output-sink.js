@@ -6,13 +6,13 @@ export function supportsStreamingSave(scope=globalThis){
     scope.navigator?.storage && typeof scope.navigator.storage.getDirectory==='function' &&
     typeof scope.WritableStream==='function');
 }
-export function criticalFrameIndices(frames){
+export function criticalFrameIndices(frames,{duration=0}={}){
   if(!Number.isInteger(frames)||frames<1)throw new RangeError('Invalid video frame count.');
-  // Five seconds and shorter retain the existing three decoded checks.
-  // For 8-10s animations inspect evenly distributed frames: catching a
-  // frozen, blank, or broken section between an otherwise correct start/end.
-  const marks=frames>240?[0,1/6,1/3,1/2,2/3,5/6,1]:
-    frames>150?[0,1/4,1/2,3/4,1]:[0,1/2,1];
+  // Number of frames alone is NOT the duration: legacy 3s at 60fps has 180
+  // frames and existing consumers expect three checkpoints. Explicit long
+  // HTML plans opt in by duration; native canvas callers remain unchanged.
+  const marks=duration>=10?[0,1/6,1/3,1/2,2/3,5/6,1]:
+    duration>=8?[0,1/4,1/2,3/4,1]:[0,1/2,1];
   return [...new Set(marks.map(f=>f===1?frames-1:Math.floor(frames*f)))].sort((a,b)=>a-b);
 }
 export async function createMp4Sink({fileHandle,BufferTarget,StreamTarget,scope=globalThis}){
