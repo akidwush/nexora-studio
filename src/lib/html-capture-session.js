@@ -99,8 +99,15 @@ export async function withHtmlCaptureSession(options,{signal}={},callback){
     frame.onload=()=>frame.contentWindow?.postMessage({
       channel:TIMELINE_CHANNEL,session,kind:'hello'
     },'*');
-    frame.srcdoc=doc;
+    // Reserve and lay out the real capture viewport BEFORE parsing srcdoc.
+    // Full HTML scripts often read innerWidth/innerHeight synchronously while
+    // constructing canvas/WebGL renderers. An unattached srcdoc iframe can
+    // expose 0x0 and silently generate a permanently blank video.
     document.body.appendChild(frame);
+    const rect=frame.getBoundingClientRect();
+    if(Math.abs(rect.width-plan.width)>1||Math.abs(rect.height-plan.height)>1)
+      throw new Error('HTML capture viewport could not be laid out at the requested resolution.');
+    frame.srcdoc=doc;
     await readyPromise;
     if(signal?.aborted)throw new HtmlExportCancelled();
     return await callback({plan,capture});
