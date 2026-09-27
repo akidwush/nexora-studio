@@ -249,9 +249,34 @@ try{
    'ESM alias must be rewritten to the pinned CDN, not passed through.');
  await page.getByRole('button',{name:/Match export preview/}).click();
  await page.getByAltText('Exact export-matching frame').waitFor({timeout:90000});
- const bareDownload=page.waitForEvent('download',{timeout:150000});
+ const bareDownload=page.waitForEvent('download',{timeout:120000});
+ bareDownload.catch(()=>{});
  await page.getByRole('button',{name:/Render MP4/}).click();
- const bareFile=await bareDownload;await bareFile.saveAs(join('artifacts','full-document-bare-three-r172.mp4'));
+ // A bare-three export must fail quickly and with its actual report instead
+ // of masking a renderer/codec failure behind a 150-second download timeout.
+ let bareDone=false,bareLast='';
+ const bareFile=await Promise.race([
+   bareDownload,
+   (async()=>{
+     for(let attempt=0;attempt<410&&!bareDone;attempt++){
+       const status=(await page.locator('.html-video-message').textContent())||'';
+       if(status!==bareLast){console.log('BARE THREE MP4 STATUS:',status);bareLast=status;}
+       const failure=page.locator('.html-render-failure-detail');
+       if(await failure.count()){
+         const details=await failure.allTextContents();
+         throw Error('Bare-three MP4 failed: '+status+' '+details.join(' ')+
+           ' Browser errors: '+pageErrors.slice(-4).join(' | '));
+       }
+       await wait(300);
+     }
+     if(!bareDone)throw Error('Bare-three MP4 stalled; last status: '+bareLast+
+       '; browser errors: '+pageErrors.slice(-4).join(' | '));
+     return null;
+   })()
+ ]);
+ bareDone=true;
+ assert.ok(bareFile,'Bare-three MP4 must trigger an actual local download.');
+ await bareFile.saveAs(join('artifacts','full-document-bare-three-r172.mp4'));
  const bareBytes=await readFile(join('artifacts','full-document-bare-three-r172.mp4'));
  assert.equal(bareBytes.toString('latin1',4,8),'ftyp');
  assert.match((await page.locator('.html-video-message').textContent())||'',/verified/i);
