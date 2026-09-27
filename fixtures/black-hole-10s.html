@@ -57,11 +57,14 @@
       gl.vertexAttribPointer(p,2,gl.FLOAT,false,0,0);
       gl.uniform2f(gl.getUniformLocation(program,'res'),canvas.width,canvas.height);
       const time=gl.getUniformLocation(program,'tm');
+      let draws=0;
       function render(ms){
         gl.viewport(0,0,canvas.width,canvas.height);
         gl.uniform1f(time,ms/1000);
         gl.drawArrays(gl.TRIANGLES,0,3);
-        if(ms===0){
+        // Warm the GPU once before probing; the standalone live preview's
+        // very first synchronous draw may not yet have a valid framebuffer.
+        if(++draws===2){
           // Prove the WebGL shader actually drew pixels independently of
           // any CSS HUD and of NEXORA's own snapshot/video comparison.
           gl.finish();
