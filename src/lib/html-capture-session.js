@@ -1,6 +1,6 @@
 // One opaque-origin sandbox per capture. Both fidelity preview and MP4 export
 // use this exact frame protocol, preventing independent render implementations.
-import {buildPreviewDoc} from './preview.js';
+import {buildPreviewDoc,PREVIEW_CHANNEL} from './preview.js';
 import {TIMELINE_CHANNEL} from './timeline-runtime.js';
 import {checkedCaptureMessage,validateHtmlVideoOptions} from './html-video-plan.js';
 
@@ -22,6 +22,7 @@ export async function withHtmlCaptureSession(options,{signal}={},callback){
     pointerEvents:'none',zIndex:'-100'
   });
   let ready=false,settled=false,resolveReady,rejectReady,readyTimer=null,pending=null,index=-1;
+  let runtimeFailure=null;
   const readyPromise=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
   readyPromise.catch(()=>{});
   const clearPending=()=>{
@@ -36,7 +37,17 @@ export async function withHtmlCaptureSession(options,{signal}={},callback){
   const receive=event=>{
     if(event.source!==frame.contentWindow)return;
     const data=event.data;
-    if(!data||data.channel!==TIMELINE_CHANNEL||data.session!==session)return;
+    if(!data||data.session!==session)return;
+    // Diagnostics and timeline share the exact session+iframe origin check.
+    // Inline scripts that throw (e.g. failed WebGL shader compilation) must
+    // NEVER quietly turn into a verified video of a blank canvas.
+    if(data.channel===PREVIEW_CHANNEL&&data.fatal===true){
+      runtimeFailure=new Error('HTML script failed: '+String(data.message||'Unknown script error').slice(0,180));
+      if(pending){const reject=pending.reject;clearPending();reject(runtimeFailure);}
+      else if(!ready&&!settled){settled=true;clearTimeout(readyTimer);rejectReady(runtimeFailure);}
+      return;
+    }
+    if(data.channel!==TIMELINE_CHANNEL)return;
     if(data.kind==='ready'){
       if(!ready&&!settled){ready=true;settled=true;clearTimeout(readyTimer);resolveReady();}
       return;
@@ -62,6 +73,7 @@ export async function withHtmlCaptureSession(options,{signal}={},callback){
   signal?.addEventListener('abort',abort,{once:true});
   const capture=async frameIndex=>{
     if(signal?.aborted)throw new HtmlExportCancelled();
+    if(runtimeFailure)throw runtimeFailure;
     if(!Number.isInteger(frameIndex)||frameIndex!==index+1||frameIndex>=plan.frames)
       throw new RangeError('HTML frames must be requested sequentially from frame zero.');
     const id=crypto.randomUUID();
@@ -76,6 +88,7 @@ export async function withHtmlCaptureSession(options,{signal}={},callback){
       },'*');
     });
     if(signal?.aborted)throw new HtmlExportCancelled();
+    if(runtimeFailure)throw runtimeFailure;
     index=frameIndex;
     return png;
   };
