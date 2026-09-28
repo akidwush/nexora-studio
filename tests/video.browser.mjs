@@ -106,10 +106,17 @@ try{
   console.log('PASS: video controls and canvas at 360 / 390 / 412');
 
   await page.setViewportSize({width:1440,height:900});
+  // Preserve the legacy low-cost aspect-ratio regression without confusing it
+  // with the universal 8s/30 FPS proof completed above.
+  await page.selectOption('#video-fps','12');
   await page.selectOption('#video-duration','1',{force:true});
   for(const [key,expectedWidth,expectedHeight] of [['square',720,720],['portrait',720,1280]]){
     await page.selectOption('#video-size',key);
     await page.locator('.codec-badge[data-supported=true]').waitFor({state:'attached',timeout:15000});
+    await page.waitForFunction(()=>{
+      const button=document.querySelector('.video-export');
+      return button&&!button.disabled&&!document.querySelector('.video-download');
+    },null,{timeout:15000});
     await page.getByRole('button',{name:/Export MP4/}).click();
     const output=page.getByRole('link',{name:/Download MP4 again/});
     await output.waitFor({timeout:90000});
@@ -134,6 +141,10 @@ try{
   await page.selectOption('#video-fps','30');
   await page.selectOption('#video-duration','12',{force:true});
   await page.locator('.codec-badge[data-supported=true]').waitFor({state:'attached',timeout:15000});
+  await page.waitForFunction(()=>{
+    const button=document.querySelector('.video-export');
+    return button&&!button.disabled&&!document.querySelector('.video-download');
+  },null,{timeout:15000});
   await page.getByRole('button',{name:/Export MP4/}).click();
   await page.getByRole('button',{name:/Cancel export/}).click();
   await page.getByRole('status').filter({hasText:/dibatalkan/i}).waitFor({timeout:25000});
