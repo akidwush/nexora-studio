@@ -32,6 +32,7 @@ try{
   await page.goForward();
   await page.locator('canvas[aria-label="Canvas video preview"]').waitFor({timeout:15000});
   console.log('PASS: browser Back and Forward preserve the single-page Video Lab route');
+  await page.locator('#video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#video-size','compact');
   await page.selectOption('#video-fps','30');
   await page.selectOption('#video-duration','8');

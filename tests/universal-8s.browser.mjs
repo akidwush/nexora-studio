@@ -76,6 +76,7 @@ try{
   await page.getByRole('button',{name:'Full HTML file · WebGL'}).click();
   await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(source);
   await page.getByRole('button',{name:/Run preview/}).click();
+  await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps','30');
   await page.selectOption('#html-video-duration','8');

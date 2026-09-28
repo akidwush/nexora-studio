@@ -47,6 +47,7 @@ try{
  assert.ok(!JSON.stringify(json).includes('apiKey'));
  console.log('PASS: offline local draft, manual edits, JSON export, strict scene schema');
 
+ await page.locator('#ai-fps').evaluate(element=>{element.closest('details').open=true;});
  await page.selectOption('#ai-size','compact');
  await page.selectOption('#ai-fps','30');
  await page.selectOption('#ai-duration','8');
@@ -126,7 +127,7 @@ try{
  assert.equal(await page.locator('#ai-title').inputValue(),'FUTURE OF CREATIVITY');
  console.log('PASS: rate-limit error preserves existing storyboard');
 
- await page.getByRole('button',{name:'All tools'}).click();
+ await page.getByRole('button',{name:/All tools/}).click();
  await page.locator('.hero').waitFor();
  await page.goBack();
  await page.locator('#ai-prompt').waitFor();

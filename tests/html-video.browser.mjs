@@ -42,6 +42,7 @@ function samplesInMp4(buffer){
   return buffer.readUInt32BE(stsz.begin+8); // version(4), sample_size(4), sample_count(4)
 }
 async function exportMp4(page,fps,duration=1){
+  await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps',String(fps));
   await page.selectOption('#html-video-duration',String(duration));

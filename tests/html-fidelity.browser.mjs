@@ -70,6 +70,7 @@ try{
     await page.getByRole('button',{name:tab,exact:true}).click();
     await page.getByRole('textbox',{name:tab+' code editor'}).fill(value);
   }
+  await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps','30');
   await page.selectOption('#html-video-duration','1');

@@ -107,6 +107,7 @@ try{
  assert.ok(srcdoc.includes('preserveDrawingBuffer'), 'WebGL framebuffer retention bootstrap must be injected into sandbox');
  assert.match(srcdoc,/sandbox|webgl/);
  assert.doesNotMatch(srcdoc,/allow-same-origin/);
+ await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
  await page.selectOption('#html-video-size','compact');
  await page.selectOption('#html-video-fps','30');
  await page.selectOption('#html-video-duration','1');
