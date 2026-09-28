@@ -77,6 +77,7 @@ try{
     await page.getByRole('button',{name:tab,exact:true}).click();
     await page.getByRole('textbox',{name:tab+' code editor'}).fill(content);
   }
+  await page.locator('#motion-clock-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.getByRole('button',{name:'Enable deterministic timeline'}).click();
   await page.locator('iframe[data-clock=controlled]').waitFor();
   await page.locator('.frame-clock-status[data-state=ready]').waitFor({timeout:12000});
@@ -121,7 +122,6 @@ try{
   assert.ok(Math.abs(rewind.svgAnimatedX-at15.svgAnimatedX)<1);
   console.log('PASS: non-monotonic seek destroys prior sandbox and exactly replays JS state');
 
-  await page.locator('#motion-clock-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#motion-clock-fps','60');
   await page.locator('.frame-clock-status[data-state=ready]').waitFor({timeout:14000});
   await targetFrame(page,1);
