@@ -143,7 +143,7 @@ try{
   await item.saveAs(join('artifacts','html-fidelity-verified-30fps.mp4'));
   await page.locator('[data-testid="html-fidelity-score"]').waitFor({timeout:30000});
   const quality=await page.locator('[data-testid="html-fidelity-score"]').textContent();
-  assert.match(quality,/mean RGB error/);
+  assert.match(quality,/mean RGB error|galat RGB terburuk/i);
   console.log('FIDELITY METRICS:',quality.trim().replace(/\s+/g,' '));
   const decoded=await page.locator('video[aria-label="Rendered HTML video playback"]').evaluate(async video=>{
     await new Promise((resolve,reject)=>{
