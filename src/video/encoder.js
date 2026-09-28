@@ -36,7 +36,7 @@ export async function encodeMotionMp4(options,{signal,onProgress,onQuality,onRep
      keyFrameInterval:1,latencyMode:'quality'});
    output.addVideoTrack(source);
    let started=false,finalized=false;
-   const important=criticalFrameIndices(opts.frames),refs=[];
+   const important=criticalFrameIndices(opts.frames,{duration:opts.duration}),refs=[];
    try{
      await output.start();started=true;stage='encode';
      for(let i=0;i<opts.frames;i++){

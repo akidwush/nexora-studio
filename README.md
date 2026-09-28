@@ -3,22 +3,20 @@
 Independent creative/motion tools website. NEXORA V1 and V2 remain untouched.
 
 ## Working tools
-- **HTML Motion Lab**: HTML/CSS/**SVG**/JavaScript editor with opaque-origin sandbox, optional deterministic frame timeline (12/24/30/60 FPS; frame seek/rewind via replay), strict CSP, display-only console, Run/Stop, four motion presets, and standalone HTML export. HTML-to-MP4 **now has a bounded native capture pipeline**: sequential sandbox-controlled computed DOM snapshots are rasterized into PNG frames and encoded as local H.264 MP4 at exact frame-index timestamps (24/30 FPS up to HD; 60 FPS at 640×360, maximum 3 seconds). Not all browser CSS/media features are supported; see HTML capture documentation. The sandbox is for previews, not arbitrary hostile-code execution. See [HTML sandbox boundaries](docs/HTML_SANDBOX.md).
+- **HTML Motion Lab**: HTML/CSS/**SVG**/JavaScript and complete-document WebGL editor with an opaque-origin sandbox, deterministic frame timeline, strict CSP and local H.264 MP4 export. The simple flow is fixed at **8 seconds / 30 FPS**; legacy short and 10-second engine plans remain only for regression coverage. HD 8-second export requires a compatible desktop-class browser and local streaming. See [HTML sandbox boundaries](docs/HTML_SANDBOX.md).
 - **Image to Vector Mosaic**: process PNG/JPEG/WebP locally into SVG rectangle artwork; download SVG/PNG. Not smooth contour tracing or AI image-to-code.
-- **Canvas Motion Video** (Step 2): a dedicated deterministic frame-rendered Canvas animation tool. Three built-in templates, responsive preview/timeline, 12/24/30 FPS, bounded 1–12s exports up to HD, real H.264 MP4 using MediaBunny/WebCodecs with progress/cancel. Silent video only.
+- **Canvas Motion Video** (Step 2): deterministic built-in Canvas animations with a simple **8-second / 30 FPS** UI, local MediaBunny/WebCodecs H.264 encoding, progress, cancellation and decoded-frame checks. Older durations remain engine-test inputs, not normal UI choices.
 - **Studio Pro**: optional full original third-party timeline editor with MPL-2.0 attribution, built separately from pinned revision. See docs/THIRD_PARTY.md.
 - **AI Motion Generator (Step 4)**: working local prompt-to-storyboard drafts and editable preview; real Gemini-powered scene generation via a fail-closed optional Vercel API with strict server rate limits and key isolation. Exports validated scene JSON or genuine browser-rendered silent MP4. See docs/STEP4.md.
 
-## Cinematic one-file HTML/WebGL (experimental)
-A complete self-contained HTML file with inline CSS and JS can be rendered to a
-verified 10-second silent H.264 MP4 (mobile-safe 640×360, up to 60 FPS).
-Long clips now use higher bitrate and up to seven distributed decoded-video
-fidelity checkpoints. On supported desktop-class browsers, an explicitly
-selected local OPFS stream enables experimental native 1280×720 at 24/30 FPS
-for 10s; it will not be offered as an in-memory or mobile download.
-The runnable full-document Canvas2D/CSS/JS black-hole fixture and real Chrome
-10-second regression are documented in
-[cinematic rendering and limitations](docs/CINEMATIC_10S.md).
+## Universal 8-second local export
+HTML four-tab, complete HTML/WebGL, Canvas Motion Video and AI Motion Generator
+all expose the same **8-second / 30 FPS** simple flow. The mobile-safe default is
+640×360. A chosen HD size is never silently downgraded: unsupported devices get
+an explicit 640×360 alternative, while eligible desktop browsers use OPFS
+streaming. The runnable full-document Canvas2D/CSS/JS black-hole fixture and
+real Chrome/FFprobe proof are documented in
+[universal rendering and limitations](docs/UNIVERSAL_8S.md).
 Not all arbitrary HTML libraries/animations, GPU-shader WebGL scenes, or Android media apps are supported.
 
 ## Development
@@ -122,16 +120,17 @@ importmap, ESM scripts and body together). The original four-tab editor is
 unchanged. One isolated opaque-origin iframe runs the full document and its
 virtual frame clock; preserving the WebGL drawing buffer lets the existing
 HTML PNG → MediaBunny H.264 path encode the actual canvas frame at each
-requested timestamp. The same `Match export preview` and first/middle/last
-**decoded** video comparisons remain mandatory; no server renders/charges.
+requested timestamp. Matching preview and distributed **decoded** video
+comparisons remain mandatory and run automatically; no server rendering is used.
 
 The supported imported Three.js r172 CodePen-style importmap in the supplied
 example is normalized to a **single pinned CDN** module graph to avoid mixing
 WebGPU, WebGL and addon builds. This is online-only for that library: no arbitrary
 external JS, fetch, remote fonts/media, nested iframes or web pages are allowed.
 An external CDN failure and browser WebGL limitations can still stop an export;
-this is not an unrestricted HTML/webpage recorder. Long scene exports (5/8/10s)
-are restricted to 640×360 to manage mobile RAM. In complex L-system demos,
+this is not an unrestricted HTML/webpage recorder. The standard 8-second mobile
+path is restricted to 640×360; compatible desktop-class browsers may explicitly
+stream 1280×720. In complex L-system demos,
 14 recursive iterations may exhaust mobile memory: test at 6–8 iterations
 before raising geometry complexity. See `docs/FULL_DOCUMENT_WEBGL.md` for
 browser proof, resource constraints, security and reproducible steps.
@@ -141,13 +140,13 @@ browser proof, resource constraints, security and reproducible steps.
 The experimental full-HTML video exporter now requires **H.264 Baseline up to
 level 3.1**, a regular MP4 container with **Fast Start metadata before media**,
 and exactly the requested number of samples. Both HTML memory downloads and the HTML
-OPFS-backed StreamTarget share this contract. The separate native Canvas
-Video Lab encoder stays untouched pending a distinct compatibility audit. The latter uses Mediabunny's
+OPFS-backed StreamTarget share this contract. The native Canvas and AI
+renderers use the same local staging and verification policy. MediaBunny uses
 `fastStart:'reserve'` with `maximumPacketCount` to avoid buffering the
 whole MP4 while still creating a seekable standard MP4. A local, bounded
 header inspection rejects mismatched codec, malformed metadata, incorrect
-frame count or incomplete destination writes before reporting success. Existing
-three-frame decoded fidelity checks still run; no server uploads are needed.
+frame count or incomplete destination writes before reporting success. Standard
+8-second exports inspect five distributed decoded frames; no server uploads are needed.
 
 The full browser CI now creates a **real five-second, 150-frame streamed MP4**
 and runs an independent FFprobe assertion for Baseline H.264, YUV420P,

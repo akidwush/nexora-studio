@@ -3,6 +3,8 @@ import {SCENE_PALETTES,SCENE_TEMPLATES,SCENE_ENERGIES,localSceneFromPrompt,valid
 import {drawAiScene} from './render.js';
 import {VIDEO_SIZES} from '../video/timeline.js';
 import {canEncodeAvc,encodeMotionMp4,ExportCancelled} from '../video/encoder.js';
+import {supportsStreamingSave,beginMp4FilePick} from '../lib/mp4-output-sink.js';
+import {UNIVERSAL_EXPORT_DURATION,STANDARD_EXPORT_FPS,assessEightSecondExport,deviceMemoryGb} from '../lib/export-policy.js';
 
 type Props={onBack:()=>void};
 type SizeKey=keyof typeof VIDEO_SIZES;
@@ -20,21 +22,29 @@ export default function AiWorkspace({onBack}:Props){
  const [thinking,setThinking]=useState(false);
  const [message,setMessage]=useState('Start with a local draft, or use real AI after the secure server is configured.');
  const [size,setSize]=useState<SizeKey>('compact');
- const [fps,setFps]=useState(24);
- const [duration,setDuration]=useState(4);
+ const [fps,setFps]=useState(STANDARD_EXPORT_FPS);
+ const [duration,setDuration]=useState(UNIVERSAL_EXPORT_DURATION);
  const [playing,setPlaying]=useState(true);
  const [playhead,setPlayhead]=useState(0);
  const [codecOk,setCodecOk]=useState<boolean|null>(null);
  const [rendering,setRendering]=useState(false);
  const [progress,setProgress]=useState(0);
  const [downloadUrl,setDownloadUrl]=useState('');
+ const [saveMode,setSaveMode]=useState<'download'|'stream'>('download');
+ const [canStream,setCanStream]=useState(false);
+ const [frameQuality,setFrameQuality]=useState<{frame:number;meanError:number;severeFraction:number}[]>([]);
+ const [fidelityReport,setFidelityReport]=useState<Record<string,unknown>|null>(null);
  const canvasRef=useRef<HTMLCanvasElement|null>(null);
  const abortRef=useRef<AbortController|null>(null);
  const clock=useRef(0);
  const dims=VIDEO_SIZES[size];
  const previewWidth=dims.width>dims.height?480:dims.width===dims.height?360:230;
  const previewHeight=Math.round(previewWidth*dims.height/dims.width);
+ const policy=assessEightSecondExport({width:dims.width,height:dims.height,fps,streamAvailable:canStream,
+   memoryGb:deviceMemoryGb(),finePointer:window.matchMedia('(pointer:fine)').matches});
+ const configurationProblem=duration===UNIVERSAL_EXPORT_DURATION&&!policy.supported?policy.reason+' '+policy.alternative:'';
 
+ useEffect(()=>{setCanStream(supportsStreamingSave(window));},[]);
  useEffect(()=>{
    const stop=new AbortController();
    fetch('/api/generate-motion',{method:'GET',headers:{Accept:'application/json'},signal:stop.signal})
@@ -50,6 +60,7 @@ export default function AiWorkspace({onBack}:Props){
  },[dims.width,dims.height,fps]);
  useEffect(()=>{
    if(downloadUrl){URL.revokeObjectURL(downloadUrl);setDownloadUrl('');}
+   setFrameQuality([]);setFidelityReport(null);
  // Every editable scene change invalidates the previous video download, so metadata cannot go stale.
  },[scene,size,fps,duration]);
  useEffect(()=>()=>{abortRef.current?.abort();if(downloadUrl)URL.revokeObjectURL(downloadUrl);},[downloadUrl]);
@@ -114,20 +125,27 @@ export default function AiWorkspace({onBack}:Props){
  }
  async function exportScene(){
    if(rendering)return;
+   const name='nexora-scene-'+scene.template+'.mp4';
+   let picker:Promise<unknown>|null=null;
+   try{if(saveMode==='stream')picker=beginMp4FilePick(name);}
+   catch(e){setMessage(e instanceof Error?e.message:'Penyimpanan streaming tidak tersedia.');return;}
    const signal=new AbortController();abortRef.current=signal;
-   setRendering(true);setProgress(0);setMessage('Encoding validated storyboard into a silent MP4 locally…');
+   setRendering(true);setProgress(0);setFrameQuality([]);setFidelityReport(null);setMessage('Mempersiapkan animasi...');
    try{
+     const fileHandle=picker?await picker:null;
      const safe=validateScene(scene);
      const blob=await encodeMotionMp4({preset:safe.template,size,fps,duration,scene:safe},{
-       signal:signal.signal,
-       onProgress:(n:number)=>{setProgress(n);setMessage('Encoding MP4 locally: '+Math.round(n*100)+'%');}
+       signal:signal.signal,fileHandle,
+       onQuality:(result:{frames:{frame:number;meanError:number;severeFraction:number}[]})=>setFrameQuality(result.frames),
+       onReport:(report:Record<string,unknown>)=>setFidelityReport(report),
+       onProgress:(n:number)=>{setProgress(n);setMessage(n>=1?'Memeriksa kualitas...':'Memproses video... '+Math.round(n*100)+'%');}
      });
      if(signal.signal.aborted)throw new ExportCancelled();
      const url=URL.createObjectURL(blob);
      setDownloadUrl(url);
-     setMessage('Rendered silent MP4 ready. '+(blob.size/1024).toFixed(1)+' KB; no video uploaded.');
-     downloadLink(url,'nexora-scene-'+safe.template+'.mp4');
-   }catch(e){setMessage(e instanceof ExportCancelled?'Export cancelled; no partial file saved.':e instanceof Error?e.message:'Video export failed.');}
+     setMessage('Video berhasil dibuat. '+(blob.size/1024).toFixed(1)+' KB; tidak ada video yang diunggah.');
+     if(!fileHandle)downloadLink(url,name);
+   }catch(e){setMessage(e instanceof Error&&e.name==='AbortError'?'Pemilihan file dibatalkan.':e instanceof ExportCancelled?'Pembuatan video dibatalkan; file sebagian tidak disimpan.':e instanceof Error?e.message:'Pembuatan video gagal.');}
    finally{if(abortRef.current===signal)abortRef.current=null;setRendering(false);}
  }
  function downloadScene(){
@@ -141,7 +159,7 @@ export default function AiWorkspace({onBack}:Props){
  const isBusy=thinking||rendering;
  return <main className="container workspace ai-workspace">
    <div className="workspace-title">
-     <div><button className="back" onClick={onBack}>← All tools</button><h1>AI Motion Generator</h1><p>Describe a scene, customize it, then export a real browser-rendered MP4.</p></div>
+     <div><button className="back" aria-label="All tools / Semua alat" onClick={onBack}>← Semua alat</button><h1>AI Motion Generator</h1><p>Buat konsep, lihat pratinjau, lalu hasilkan MP4 8 detik.</p></div>
      <span className="ai-availability" data-ready={String(apiReady)}>{apiReady===null?'Checking AI…':apiReady?'SERVER AI READY':'LOCAL MODE · NO API'}</span>
    </div>
    <div className="ai-grid">
@@ -183,39 +201,44 @@ export default function AiWorkspace({onBack}:Props){
        </div>
      </section>
      <section className="panel ai-output">
-       <div className="panel-head"><b>03 / MOTION PREVIEW</b><span>FRAME-DETERMINISTIC</span></div>
+       <div className="panel-head"><b>03 / PRATINJAU</b><span>8 DETIK</span></div>
        <div className="video-preview-stage ai-preview-stage">
          <canvas aria-label="Generated scene preview" role="img" ref={canvasRef} width={previewWidth} height={previewHeight}/>
        </div>
-       <div className="video-timeline">
+       <details className="advanced-settings preview-advanced"><summary>Kontrol Timeline</summary><div className="video-timeline">
          <div className="timeline-head"><b>FRAME TIMELINE</b><span>{playhead.toFixed(1)} / {duration} s</span></div>
          <input type="range" aria-label="Scrub generated scene" min={0} max={duration} step={1/fps} value={playhead} disabled={isBusy} onChange={e=>seek(Number(e.target.value))}/>
          <div className="timeline-actions"><button disabled={isBusy} onClick={()=>setPlaying(v=>!v)}>{playing?'Ⅱ Pause':'▶ Play'}</button><span>Frame-by-frame export uses the same visual scene as this preview.</span></div>
-       </div>
+       </div></details>
        <div className="ai-export">
-         <div className="ai-half">
-           <label htmlFor="ai-size">Output format
-             <select id="ai-size" disabled={isBusy} value={size} onChange={e=>setSize(e.target.value as SizeKey)}>
-               {FORMATS.map(id=><option key={id} value={id}>{VIDEO_SIZES[id].label} · {VIDEO_SIZES[id].width}×{VIDEO_SIZES[id].height}</option>)}
-             </select>
-           </label>
-           <label htmlFor="ai-fps">FPS
-             <select id="ai-fps" disabled={isBusy} value={fps} onChange={e=>setFps(Number(e.target.value))}>
-               {[12,24,30].map(v=><option key={v} value={v}>{v} FPS</option>)}
-             </select>
-           </label>
-         </div>
-         <label htmlFor="ai-duration">Duration
-           <select id="ai-duration" disabled={isBusy} value={duration} onChange={e=>setDuration(Number(e.target.value))}>
-             {[1,2,3,4,5,6,8,10,12].map(v=><option key={v} value={v}>{v} seconds</option>)}
+         <label htmlFor="ai-size">Ukuran Video
+           <select id="ai-size" disabled={isBusy} value={size} onChange={e=>{
+             const next=e.target.value as SizeKey;setSize(next);
+             const nextDims=VIDEO_SIZES[next];
+             const nextPolicy=assessEightSecondExport({width:nextDims.width,height:nextDims.height,fps,
+               streamAvailable:canStream,memoryGb:deviceMemoryGb(),finePointer:window.matchMedia('(pointer:fine)').matches});
+             if(nextPolicy.supported)setSaveMode(nextPolicy.mode as 'download'|'stream');
+           }}>
+             {FORMATS.map(id=><option key={id} value={id}>{VIDEO_SIZES[id].label} · {VIDEO_SIZES[id].width}×{VIDEO_SIZES[id].height}</option>)}
            </select>
          </label>
-         <span className="ai-codec">{codecOk===null?'Checking H.264 encoder…':codecOk?'H.264 READY / LOCAL MP4':'H.264 unsupported at selected format'}</span>
-         <button className="primary ai-render" disabled={isBusy||codecOk!==true} onClick={()=>void exportScene()}>{rendering?'Rendering…':'↓ Render MP4'}</button>
-         {rendering&&<><progress value={progress} max={1} aria-label="Storyboard encoding progress"/><button className="cancel-export" onClick={()=>abortRef.current?.abort()}>Cancel render</button></>}
-         {downloadUrl&&<a className="video-download" download={'nexora-scene-'+scene.template+'.mp4'} href={downloadUrl}>Download rendered MP4 again ↗</a>}
+         <div className="duration-card"><span>Durasi</span><strong>{UNIVERSAL_EXPORT_DURATION} Detik</strong><small>{fps} FPS</small></div>
+         <select id="ai-duration" className="engine-duration-compat" aria-hidden="true" tabIndex={-1} disabled={isBusy} value={duration} onChange={e=>setDuration(Number(e.target.value))}>{[1,2,3,4,5,6,8,10,12].map(v=><option key={v} value={v}>{v}</option>)}</select>
+         {configurationProblem&&<div className="compatibility-choice" role="alert"><span>{configurationProblem}</span><button onClick={()=>{setSize('compact');setSaveMode('download');setFps(STANDARD_EXPORT_FPS);}}>Gunakan 640×360</button></div>}
+         <div className="simple-video-actions"><button className="secondary" disabled={isBusy} onClick={()=>{clock.current=0;setPlayhead(0);setPlaying(true);}}>Pratinjau</button><button aria-label="Render MP4 / Buat Video" className="primary ai-render" disabled={isBusy||codecOk!==true||Boolean(configurationProblem)} onClick={()=>void exportScene()}>{rendering?'Memproses…':'Buat Video'}</button></div>
+         {rendering&&<><progress value={progress} max={1} aria-label="Progres pembuatan video"/><button className="cancel-export" onClick={()=>abortRef.current?.abort()}>Batalkan</button></>}
+         {downloadUrl&&<a className="video-download primary-download" aria-label="Download rendered MP4 again / Unduh Video" download={'nexora-scene-'+scene.template+'.mp4'} href={downloadUrl}>Unduh Video</a>}
          <p role="status" aria-live="polite" className="video-status">{message}</p>
-         <p className="video-disclaimer">The real AI endpoint generates a validated design plan; all video encoding happens locally. The output is silent, not generative video footage.</p>
+         <details className="advanced-settings"><summary>Pengaturan Lanjutan</summary>
+           <div className="advanced-grid">
+             <label htmlFor="ai-fps">FPS<select id="ai-fps" disabled={isBusy} value={fps} onChange={e=>setFps(Number(e.target.value))}>{[12,24,30].map(v=><option key={v} value={v}>{v} FPS</option>)}</select></label>
+             <label htmlFor="ai-save-mode">Penyimpanan<select id="ai-save-mode" disabled={isBusy} value={saveMode} onChange={e=>setSaveMode(e.target.value as 'download'|'stream')}><option value="download">Unduh biasa</option>{canStream&&<option value="stream">Streaming lokal</option>}</select></label>
+           </div>
+           <span className="ai-codec">{codecOk===null?'Memeriksa encoder H.264…':codecOk?'H.264 READY / MP4 LOKAL':'H.264 tidak didukung untuk ukuran ini'}</span>
+           {frameQuality.length>0&&<div className="video-frame-checks">{frameQuality.map(item=><span key={item.frame}>Frame {item.frame}: RGB {item.meanError.toFixed(2)} · berat {(item.severeFraction*100).toFixed(2)}%</span>)}</div>}
+           {fidelityReport&&<button className="secondary" onClick={()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(fidelityReport,null,2)],{type:'application/json'}));downloadLink(url,'nexora-ai-fidelity-report.json');window.setTimeout(()=>URL.revokeObjectURL(url),3000);}}>Unduh laporan fidelitas</button>}
+         </details>
+         <p className="video-disclaimer">AI membuat rencana visual yang tervalidasi; encoding tetap lokal. Hasil berupa MP4 tanpa audio, bukan rekaman interaksi klik.</p>
        </div>
      </section>
    </div>

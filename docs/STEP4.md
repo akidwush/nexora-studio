@@ -30,7 +30,7 @@ The Vercel route uses the provider's standard generateContent method with applic
 ## Limits
 
 - AI creates an editable **motion design plan**, not AI-generated video footage or arbitrary HTML/CSS.
-- MP4 exports contain no audio. 1–12 seconds; current Step 2 size/FPS boundaries apply.
+- MP4 exports contain no audio. The simple UI is fixed at 8 seconds / 30 FPS and uses the shared device-capability policy; legacy duration values remain regression-only.
 - Studio Pro third-party vendor timeline remains independent; no user auth is shared with it.
 
 ## QA

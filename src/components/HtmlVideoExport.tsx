@@ -5,6 +5,7 @@ import {MOBILE_AVC_CODEC} from '../lib/android-mp4.js';
 import {supportsStreamingSave,beginMp4FilePick} from '../lib/mp4-output-sink.js';
 import {makeRenderReport} from '../lib/render-fidelity-report.js';
 import {assertDocumentSource} from '../lib/html-document.js';
+import {UNIVERSAL_EXPORT_DURATION,STANDARD_EXPORT_FPS} from '../lib/export-policy.js';
 
 type Size=keyof typeof HTML_VIDEO_SIZES;
 type Source={html:string;css:string;svg:string;js:string;document?:never}|{document:string;html?:never;css?:never;svg?:never;js?:never};
@@ -16,8 +17,8 @@ type Quality={meanError:number;severeFraction:number;frames:FrameScore[];outputM
 type Report=ReturnType<typeof makeRenderReport>;
 export default function HtmlVideoExport({source,sourceReady=true}:Props){
   const [size,setSize]=useState<Size>('compact');
-  const [fps,setFps]=useState(30);
-  const [duration,setDuration]=useState(1);
+  const [fps,setFps]=useState(STANDARD_EXPORT_FPS);
+  const [duration,setDuration]=useState(UNIVERSAL_EXPORT_DURATION);
   const [matte,setMatte]=useState('#FFFFFF');
   const [sample,setSample]=useState('start');
   const [showAlpha,setShowAlpha]=useState(false);
@@ -40,24 +41,21 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
   const abortRef=useRef<AbortController|null>(null);
   const videoRef=useRef('');
   const fullDocument=typeof source.document==='string';
-  // A high-resolution ten-second render is an explicit desktop-class local
+  // A high-resolution long render is an explicit desktop-class local
   // streaming option, not an accidental huge in-memory export on Android.
-  const hdLong=fullDocument&&size==='landscape'&&duration===10&&
+  const hdLong=size==='landscape'&&duration>=UNIVERSAL_EXPORT_DURATION&&
     saveMode==='stream'&&hdDesktop;
-  const longDurationMenu=fullDocument&&(size==='compact'||
-    (size==='landscape'&&saveMode==='stream'&&hdDesktop));
   const key=JSON.stringify([source.document,source.html,source.css,source.svg,source.js,size,fps,duration]);
   const previewIndex=sample==='middle'?Math.floor(fps*duration/2):
     sample==='last'?fps*duration-1:0;
   const busy=working||previewing;
-  // Full-document 5/8/10s durations must reach the same preflight validator
+  // Long durations must reach the same preflight validator
   // as capture/encoder, rather than accidentally using legacy 1–3s rules.
   const opts={size,fps,duration,matte,stream:hdLong,...(fullDocument?{document:source.document}:{})};
   useEffect(()=>{
-    // Reopening the old four-tab editor after a 5/8/10s WebGL experiment
-    // must not strand its legacy 1–3s dropdown on an unsupported value.
-    if(!fullDocument)setDuration(value=>Math.min(value,3));
-  },[fullDocument]);
+    if(!fullDocument&&!([1,2,3,UNIVERSAL_EXPORT_DURATION].includes(duration)))
+      setDuration(UNIVERSAL_EXPORT_DURATION);
+  },[fullDocument,duration]);
   const dimensions=HTML_VIDEO_SIZES[size];
   const validPreview=rawPreview?.key===key&&rawPreview.index===previewIndex?rawPreview:null;
   let documentProblem='';
@@ -67,7 +65,11 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
     }
   }
   const renderReady=!fullDocument||(!documentProblem&&sourceReady);
-  const exportReady=renderReady&&(!fullDocument||Boolean(validPreview));
+  let configurationProblem='';
+  try{validateHtmlVideoOptions(opts);}catch(error){
+    configurationProblem=error instanceof Error?error.message:'Konfigurasi video tidak didukung.';
+  }
+  const exportReady=renderReady&&!configurationProblem;
   const renderBlockedReason=documentProblem||(!sourceReady&&fullDocument?
     'Run preview with the current complete HTML file before capturing frames.':'');
 
@@ -133,7 +135,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
       const png=await captureHtmlFrame({...source,...opts},previewIndex,{signal:task.signal});
       if(task.signal.aborted)return;
       setRawPreview({key,index:previewIndex,png});
-      setMessage('Export-matching frame '+previewIndex+' ready. Transparent PNG is available.');
+      setMessage('Pratinjau siap dan cocok dengan frame ekspor. Export-matching frame '+previewIndex+' ready.');
     }catch(error){if(!task.signal.aborted){
       setMessage(error instanceof Error?error.message:'Preview failed.');
       setReport(makeRenderReport({...dimensions,size,fps,duration,matte},{
@@ -151,7 +153,7 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
     try{if(saveMode==='stream')picker=beginMp4FilePick(filename);}
     catch(error){setMessage(error instanceof Error?error.message:'File picker unavailable.');return;}
     setWorking(true);setProgress(0);setQuality(null);setReport(null);
-    setMessage('Validating preview and preparing deterministic capture…');
+    setMessage('Mempersiapkan animasi...');
     if(videoRef.current){URL.revokeObjectURL(videoRef.current);videoRef.current='';}
     setVideoUrl('');setPlaybackError('');
     const task=new AbortController();abortRef.current=task;
@@ -175,21 +177,19 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
         onReport:(item:Report)=>{receivedReport=true;setReport(item);},
         onProgress:(value:number,frame:number,total:number)=>{
           setProgress(value);
-          setMessage(frame===total?'Captures complete · verifying '+criticalFrameIndices(total,{duration}).length+' decoded video checkpoints…':
-            'Capturing '+frame+' / '+total+' frames · '+Math.round(value*100)+'%');
+          setMessage(frame===total?'Memeriksa kualitas...':
+            'Memproses video... '+Math.round(value*100)+'%');
         }
       });
       if(task.signal.aborted&&!fileHandle)return;
       const url=URL.createObjectURL(blob);videoRef.current=url;setVideoUrl(url);
       const checkpoints=criticalFrameIndices(fps*duration,{duration}).length;
-      setMessage(fileHandle?
-        'Streaming save complete: '+checkpoints+' decoded video checkpoints verified before file commit.':
-        'Export verified: '+checkpoints+' decoded H.264 frames match the preview.');
+      setMessage('Video berhasil dibuat. '+(fileHandle?'Streaming save complete. ':'Export verified. ')+checkpoints+' titik kualitas telah diperiksa.');
       if(!fileHandle){const link=document.createElement('a');link.href=url;link.download=filename;link.click();}
     }catch(error){
       const dismissed=error instanceof Error&&error.name==='AbortError';
-      setMessage(dismissed?'File selection cancelled.':task.signal.aborted?
-        'Export cancelled; no partial file saved.':error instanceof Error?error.message:'Export parity check failed.');
+      setMessage(dismissed?'Pemilihan file dibatalkan.':task.signal.aborted?
+        'Pembuatan video dibatalkan. File sebagian tidak disimpan.':error instanceof Error?error.message:'Pemeriksaan kualitas gagal.');
       if(!receivedReport&&!dismissed)setReport(makeRenderReport({...dimensions,size,fps,duration,matte},{
         mode:saveMode==='stream'?'stream':'memory',error,phase:'prepare'
       }));
@@ -204,79 +204,49 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
     const a=document.createElement('a');a.href=url;a.download='nexora-render-fidelity-report.json';a.click();
     window.setTimeout(()=>URL.revokeObjectURL(url),3000);
   };
-  return <section className="html-video-export" aria-label="HTML to MP4 exporter">
+  return <section className="html-video-export" aria-label="Pembuat video MP4 dari HTML">
     <div className="html-video-head">
-      <strong>{fullDocument?'FULL HTML + WEBGL → MP4':'HTML → MATCHING MP4'}</strong><span>SAME CAPTURE PIPELINE</span>
+      <strong>{fullDocument?'HTML LENGKAP + WEBGL → MP4':'HTML → MP4 8 DETIK'}</strong><span>LOKAL · TANPA UPLOAD</span>
     </div>
-    <div className="html-video-settings">
-      <label htmlFor="html-video-size">Output
+    <div className="simple-export-settings">
+      <label htmlFor="html-video-size">Ukuran Video
         <select id="html-video-size" disabled={busy} value={size} onChange={event=>{
           const next=event.target.value as Size;setSize(next);
-          if(next!=='compact'&&fps===60)setFps(30);
-          if(next!=='compact'&&duration>3&&!(next==='landscape'&&
-            hdDesktop&&saveMode==='stream'&&duration===10))setDuration(3);
+          if(next!=='compact'&&fps===60)setFps(STANDARD_EXPORT_FPS);
+          if(next==='compact')setSaveMode('download');
+          else if(next==='landscape'&&hdDesktop)setSaveMode('stream');
         }}>
           {Object.entries(HTML_VIDEO_SIZES).map(([id,info])=>
             <option key={id} value={id}>{info.label}</option>)}
         </select>
       </label>
-      <label htmlFor="html-video-fps">Frame rate
-        <select id="html-video-fps" disabled={busy} value={fps}
-          onChange={event=>setFps(Number(event.target.value))}>
-          {[24,30,...(size==='compact'?[60]:[])].map(rate=>
-            <option value={rate} key={rate}>{rate} FPS</option>)}
-        </select>
-      </label>
-      <label htmlFor="html-video-duration">Duration
-        <select id="html-video-duration" disabled={busy} value={duration}
-          onChange={event=>setDuration(Number(event.target.value))}>
-          {[1,2,3,...(fullDocument&&size==='compact'?[5,8,10]:
-            longDurationMenu?[10]:[])].map(value=><option value={value} key={value}>{value} sec</option>)}
-        </select>
-      </label>
-      <label htmlFor="html-video-matte">MP4 background
-        <input id="html-video-matte" type="color" disabled={busy} value={matte}
-          onChange={event=>setMatte(event.target.value.toUpperCase())}/>
-      </label>
-      <label htmlFor="html-video-storage">Storage method
-        <select id="html-video-storage" value={saveMode} disabled={busy}
-          onChange={event=>{
-            const next=event.target.value as 'download'|'stream';
-            setSaveMode(next);
-            if(next==='download'&&size==='landscape'&&duration>3)setDuration(3);
-          }}>
-          <option value="download">Compatible download</option>
-          {streamAvailable&&<option value="stream">Streaming · save to device</option>}
-        </select>
-      </label>
-      <label htmlFor="html-video-sample">Inspect exact frame
-        <select id="html-video-sample" value={sample} disabled={busy} onChange={event=>setSample(event.target.value)}>
-          <option value="start">First · frame 0</option>
-          <option value="middle">Middle · frame {Math.floor(fps*duration/2)}</option>
-          <option value="last">Last · frame {fps*duration-1}</option>
-        </select>
-      </label>
+      <div className="duration-card"><span>Durasi</span><strong>{UNIVERSAL_EXPORT_DURATION} Detik</strong><small>{fps} FPS</small></div>
+      <select id="html-video-duration" className="engine-duration-compat" aria-hidden="true"
+        tabIndex={-1} disabled={busy} value={duration} onChange={event=>setDuration(Number(event.target.value))}>
+        {(fullDocument?[1,2,3,5,8,10]:[1,2,3,8]).map(value=><option value={value} key={value}>{value}</option>)}
+      </select>
     </div>
-    <p className="html-video-limit">H.264 MP4 cannot retain alpha. Pick the same background
-      used by the verified frame preview. Raw transparent PNG retains its alpha.</p>
+    {configurationProblem&&<div className="compatibility-choice" role="alert">
+      <span>{configurationProblem}</span>
+      <button disabled={busy} onClick={()=>{setSize('compact');setFps(STANDARD_EXPORT_FPS);setSaveMode('download');}}>Gunakan 640×360</button>
+    </div>}
     <div className="html-video-actions">
-      <button className="secondary" disabled={busy||!renderReady} onClick={()=>void runPreview()}>
-        {previewing?'Replaying…':'◉ Match export preview'}
+      <button className="secondary" aria-label="Match export preview / Pratinjau" disabled={busy||!renderReady} onClick={()=>void runPreview()}>
+        {previewing?'Mempersiapkan…':'Pratinjau'}
       </button>
-      <button className="primary" disabled={busy||support!==true||!exportReady} onClick={()=>void exportVideo()}>
-        {working?'Verifying…':'↓ Render MP4'}
+      <button className="primary" aria-label="Render MP4 / Buat Video" disabled={busy||support!==true||!exportReady} onClick={()=>void exportVideo()}>
+        {working?'Memproses…':'Buat Video'}
       </button>
-      {busy&&<button className="cancel-export" onClick={()=>abortRef.current?.abort()}>Cancel</button>}
+      {busy&&<button className="cancel-export" aria-label="Cancel / Batalkan" onClick={()=>abortRef.current?.abort()}>Batalkan</button>}
     </div>
     {fullDocument&&<p className="html-video-gate-message" data-testid="full-html-export-gate" role="status">
-      {renderBlockedReason||(!validPreview?'Prepare an export-matching frame before rendering the complete HTML video.':
-        'Full HTML validated and matching frame ready. MP4 export unlocked.')}
+      {renderBlockedReason||'Pratinjau HTML terbaru siap. Pemeriksaan frame akan berjalan otomatis saat video dibuat.'}
     </p>}
     {validPreview&&<>
       <div className="html-video-preview-heading">
-        <span>REFERENCE FRAME {previewIndex} · {Math.round(previewIndex*1000/fps)} ms</span>
-        <button onClick={()=>setShowAlpha(value=>!value)}>
-          {showAlpha?'Show MP4 matte':'Show true transparency'}
+        <span>FRAME PRATINJAU {previewIndex} · {Math.round(previewIndex*1000/fps)} ms</span>
+        <button aria-label={showAlpha?'Show MP4 matte / Lihat latar MP4':'Show true transparency / Lihat transparansi'} onClick={()=>setShowAlpha(value=>!value)}>
+          {showAlpha?'Lihat latar MP4':'Lihat transparansi'}
         </button>
       </div>
       <div className="html-video-preview-stage" data-alpha={String(showAlpha)}
@@ -286,53 +256,66 @@ export default function HtmlVideoExport({source,sourceReady=true}:Props){
             src={showAlpha?alphaUrl:matteUrl}/>}
       </div>
       {transparentDownload&&
-        <a className="video-download" href={alphaUrl}
+        <a className="video-download" aria-label="Download lossless transparent PNG frame / Unduh frame PNG transparan" href={alphaUrl}
           download={'nexora-html-transparent-frame-'+previewIndex+'.png'}>
-          ↓ Download lossless transparent PNG frame
+          Unduh frame PNG transparan
         </a>}
     </>}
     {working&&<progress aria-label="HTML frame capture progress" max={1} value={progress}/>}
     <p className="html-video-message" role="status">{message||(
-      support===null?'Checking H.264 support…':support===false?
-      'H.264 unavailable in this browser.':'Generate a matching frame preview before exporting.'
+      support===null?'Memeriksa dukungan video…':support===false?
+      'Browser ini tidak mendukung H.264. Coba Chrome atau Edge terbaru.':'Siap membuat video 8 detik.'
     )}</p>
-    {quality&&<div className="html-fidelity-score" data-testid="html-fidelity-score">
-      Verified {quality.frames.length}-frame preview ↔ MP4 · worst mean RGB error {quality.meanError.toFixed(2)}
-      {' · '}large-error pixels {(quality.severeFraction*100).toFixed(2)}%
-      <div className="html-video-frame-scores">{quality.frames.map(item=><span key={item.frame}>
-        Frame {item.frame}: RGB {item.meanError.toFixed(2)}, severe {(item.severeFraction*100).toFixed(2)}%
-      </span>)}</div>
-    </div>}
-    {report&&<div className="html-video-report">
-      <label><input type="checkbox" checked={includeSource}
-        onChange={event=>setIncludeSource(event.target.checked)}/>
-        Include the current source in the downloaded report (may contain private HTML/JS)
-      </label>
-      <button className="secondary" onClick={downloadReport}>↓ Download reproducible rendering report (JSON)</button>
-      <small>{report.result.status==='PASSED'?'All inspected frames passed.':
-        'Failure recorded: '+(report.result.code||'RENDER')+'. No report data was uploaded.'}</small>
-      {report.compatibility&&<small className="html-render-compatibility">
-        MP4 check: {report.compatibility.codec} · Fast Start · {report.compatibility.bytes} bytes.
-        Android device playback still depends on that phone's decoder and media app.
-      </small>}
-      {report.result.status==='FAILED'&&<small className="html-render-failure-detail" role="alert">
-        Cause: {report.result.message}
-      </small>}
-    </div>}
     {videoUrl&&<>
-      <a className="video-download" href={videoUrl}
-        download={'nexora-html-'+size+'-'+fps+'fps.mp4'}>{saveMode==='stream'?'Download an additional MP4 copy ↗':'Download verified MP4 again ↗'}</a>
+      <a className="video-download primary-download" aria-label="Download verified MP4 again / Unduh Video" href={videoUrl}
+        download={'nexora-html-'+size+'-'+fps+'fps.mp4'}>Unduh Video</a>
       <video className="html-video-result" controls playsInline preload="metadata" src={videoUrl}
         poster={matteUrl||undefined}
         onLoadedMetadata={()=>setPlaybackError('')}
-        onError={()=>setPlaybackError('The Android browser cannot play this saved MP4 inline. Download the complete file and try Google Photos or the Files video player. If both fail, share the actual 5-second MP4 for codec and container inspection.')}
+        onError={()=>setPlaybackError('Browser Android tidak dapat memutar hasil ini langsung. Unduh file lengkap lalu coba Google Photos atau pemutar video Files.')}
         aria-label="Rendered HTML video playback"/>
       {playbackError&&<p role="alert" className="html-render-failure-detail">{playbackError}</p>}
     </>}
-    <p className="html-video-limit">Streaming uses temporary device storage and only writes the selected file after parity checks. No server uploads. Compatible download is always available.</p>
-    <p className="html-video-limit">{fullDocument?
-      'Complete HTML/WebGL uses only pinned Three.js r172 and embedded assets. 5/8/10s at 640×360; on supported desktop browsers, 10s at 720p requires Streaming · save to device. Longer exports verify up to seven decoded frames.':
-      'Self-contained HTML/CSS/SVG/JS with local or embedded assets only. Maximum 3 seconds; 60 FPS at 640×360.'}
-      {' '}All successful exports retain preview and decoded-video parity checks.</p>
+    <details className="advanced-settings">
+      <summary>Pengaturan Lanjutan</summary>
+      <div className="html-video-settings">
+        <label htmlFor="html-video-fps">FPS
+          <select id="html-video-fps" disabled={busy} value={fps} onChange={event=>setFps(Number(event.target.value))}>
+            {[24,30,...(size==='compact'?[60]:[])].map(rate=><option value={rate} key={rate}>{rate} FPS</option>)}
+          </select>
+        </label>
+        <label htmlFor="html-video-matte">Latar MP4
+          <input id="html-video-matte" type="color" disabled={busy} value={matte}
+            onChange={event=>setMatte(event.target.value.toUpperCase())}/>
+        </label>
+        <label htmlFor="html-video-storage">Penyimpanan
+          <select id="html-video-storage" value={saveMode} disabled={busy} onChange={event=>setSaveMode(event.target.value as 'download'|'stream')}>
+            <option value="download">Unduh biasa</option>
+            {streamAvailable&&<option value="stream">Streaming lokal</option>}
+          </select>
+        </label>
+        <label htmlFor="html-video-sample">Frame pemeriksaan
+          <select id="html-video-sample" value={sample} disabled={busy} onChange={event=>setSample(event.target.value)}>
+            <option value="start">Awal · frame 0</option>
+            <option value="middle">Tengah · frame {Math.floor(fps*duration/2)}</option>
+            <option value="last">Akhir · frame {fps*duration-1}</option>
+          </select>
+        </label>
+      </div>
+      <p className="html-video-limit">Codec H.264 Baseline, MP4 Fast Start, pemeriksaan fidelitas, dan penyimpanan OPFS tetap berjalan otomatis. MP4 tidak menyimpan transparansi.</p>
+      {quality&&<div className="html-fidelity-score" data-testid="html-fidelity-score">
+        {quality.frames.length} frame diperiksa · galat RGB terburuk {quality.meanError.toFixed(2)} · piksel galat besar {(quality.severeFraction*100).toFixed(2)}%
+        <div className="html-video-frame-scores">{quality.frames.map(item=><span key={item.frame}>Frame {item.frame}: RGB {item.meanError.toFixed(2)} · berat {(item.severeFraction*100).toFixed(2)}%</span>)}</div>
+      </div>}
+      {report&&<div className="html-video-report">
+        <label><input type="checkbox" checked={includeSource} onChange={event=>setIncludeSource(event.target.checked)}/>Sertakan kode saat mengunduh laporan teknis</label>
+        <button className="secondary" onClick={downloadReport}>Unduh laporan fidelitas JSON</button>
+        <small>{report.result.status==='PASSED'?'Semua frame pemeriksaan lolos.':'Kegagalan tercatat: '+(report.result.code||'RENDER')+'. Data tidak diunggah.'}</small>
+        {report.compatibility&&<small className="html-render-compatibility">MP4: {report.compatibility.codec} · Fast Start · {report.compatibility.bytes} byte.</small>}
+        {report.result.status==='FAILED'&&<small className="html-render-failure-detail" role="alert">Penyebab: {report.result.message}</small>}
+      </div>}
+    </details>
+    <p className="html-video-limit">Animasi yang bergantung pada klik, sentuhan, atau input pengguna tidak direkam otomatis. Jadwalkan perubahan tersebut di dalam kode agar masuk ke video.</p>
+    <p className="html-video-limit">Semua pemrosesan dilakukan di browser. Kode Full HTML/WebGL tetap memakai sandbox terisolasi dan Three.js r172 yang dipatok.</p>
   </section>;
 }

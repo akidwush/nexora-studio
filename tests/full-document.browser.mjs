@@ -115,7 +115,7 @@ try{
  assert.equal(await page.getByRole('button',{name:/Render MP4/}).isEnabled(),true,
    'A validated and matching frame must unlock full-document MP4.');
  const readyText=(await page.locator('.html-video-message').textContent())||'';
- assert.match(readyText,/ready/i);
+ assert.match(readyText,/Pratinjau siap/i);
  const begin=page.waitForEvent('download',{timeout:120000});
  await page.getByRole('button',{name:/Render MP4/}).click();
  begin.catch(()=>{}); // observed by the race, even if UI reports failure first
@@ -149,12 +149,12 @@ try{
  assert.ok(last[0]-first[0]>45,
    'WebGL video must contain full animated frames rather than one screenshot: '+JSON.stringify({first,last}));
  assert.ok(first[2]>120&&last[2]>120,'WebGL RGB must be captured, not a black blank canvas.');
- assert.match((await page.locator('.html-video-message').textContent())||'',/verified/i);
+ assert.match((await page.locator('.html-video-message').textContent())||'',/Video berhasil dibuat/i);
  // Long one-file preview should use document-specific duration validation,
  // but this lightweight UI proof captures only frame zero (not 150 frames).
  await page.selectOption('#html-video-duration','5');
  await page.getByRole('button',{name:/Match export preview/}).click();
- await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i}).waitFor({timeout:45000});
+ await page.locator('.html-video-message').filter({hasText:/Pratinjau siap/i}).waitFor({timeout:45000});
  await page.selectOption('#html-video-duration','1');
  console.log('PASS: 5-second experimental full-document output is accepted by UI preflight.');
 
@@ -163,11 +163,11 @@ try{
  await page.selectOption('#html-video-storage','stream');
  await page.selectOption('#html-video-duration','5');
  await page.getByRole('button',{name:/Match export preview/}).click();
- await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i})
+ await page.locator('.html-video-message').filter({hasText:/Pratinjau siap/i})
    .waitFor({timeout:55000});
  await page.getByRole('button',{name:/Render MP4/}).click();
  const complete=page.locator('.html-video-message')
-   .filter({hasText:/Streaming save complete/i}).waitFor({timeout:170000});
+   .filter({hasText:/Video berhasil dibuat/i}).waitFor({timeout:170000});
  complete.catch(()=>{});
  await Promise.race([
    complete,
@@ -180,7 +180,7 @@ try{
          const errors=await page.locator('.html-render-failure-detail').allTextContents();
          throw Error('Real 5-second OPFS/Android MP4 failed: '+status+' '+errors.join(' '));
        }
-       if(status.includes('Streaming save complete'))return;
+       if(status.includes('Video berhasil dibuat'))return;
        await wait(300);
      }
      throw Error('Five-second OPFS stream did not complete: '+previous);
@@ -204,13 +204,13 @@ try{
  console.log('PASS: real 5s 150-frame OPFS streaming produced verified Baseline Fast Start MP4 for ffprobe; bytes '+five.bytes.length);
  await page.selectOption('#html-video-storage','download');
 
- // Returning to legacy four-tab mode must restore its 1–3s menu automatically.
+ // Returning to four-tab mode must restore the universal 8-second UI contract.
  await page.selectOption('#html-video-duration','5');
  await page.getByRole('button',{name:'Four tabs'}).click();
- await page.waitForFunction(()=>document.querySelector('#html-video-duration')?.value==='3',null,{timeout:6000});
+ await page.waitForFunction(()=>document.querySelector('#html-video-duration')?.value==='8',null,{timeout:6000});
  await page.getByRole('button',{name:'Full HTML file · WebGL'}).click();
  await page.selectOption('#html-video-duration','1');
- console.log('PASS: switching from extended WebGL duration to the old four-tab editor resets unsupported 5s selection.');
+ console.log('PASS: switching from legacy full-document duration restores the universal four-tab 8s contract.');
  console.log('PASS: full-file inline WebGL canvas -> actual 30 FPS H.264 with changing decoded pixels',JSON.stringify({first,last,bytes:bytes.length}));
  // The user's original CodePen-style HTML importmap MUST be recognized and
  // rewritten to one consistent Three.js version, never raw CodePen/esm mixture.
@@ -319,7 +319,7 @@ try{
  assert.match(cosmicDoc,/cdn\.jsdelivr\.net\/npm\/three@0\.172\.0\/examples\/jsm\//);
  await page.selectOption('#html-video-fps','24');
  await page.getByRole('button',{name:/Match export preview/}).click();
- await page.locator('.html-video-message').filter({hasText:/frame 0 ready/i}).waitFor({timeout:90000});
+ await page.locator('.html-video-message').filter({hasText:/Pratinjau siap/i}).waitFor({timeout:90000});
  assert.equal(await page.getByRole('button',{name:/Render MP4/}).isEnabled(),true,
    'All five pinned Three imports plus postprocessing must initialize before export');
  const cosmicDownload=page.waitForEvent('download',{timeout:125000});cosmicDownload.catch(()=>{});

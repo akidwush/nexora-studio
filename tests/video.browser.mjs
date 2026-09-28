@@ -3,7 +3,7 @@ import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,readFile} from 'node:fs/promises';
 import {join} from 'node:path';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 const url='http://127.0.0.1:4174';
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4174','--strictPort'],{stdio:['ignore','pipe','pipe']});
 let stderr='';
@@ -33,18 +33,18 @@ try{
   await page.locator('canvas[aria-label="Canvas video preview"]').waitFor({timeout:15000});
   console.log('PASS: browser Back and Forward preserve the single-page Video Lab route');
   await page.selectOption('#video-size','compact');
-  await page.selectOption('#video-fps','12');
-  await page.selectOption('#video-duration','1');
+  await page.selectOption('#video-fps','30');
+  await page.selectOption('#video-duration','8');
   console.log('Video encoder diagnostics',JSON.stringify(await page.evaluate(async()=>({encoderAvailable:typeof VideoEncoder==='function',avc:typeof VideoEncoder==='function'?await VideoEncoder.isConfigSupported({codec:'avc1.42001f',width:640,height:360,bitrate:2_000_000,framerate:12}):null,badge:document.querySelector('.codec-badge')?.outerHTML}))));
-  await page.locator('.codec-badge[data-supported=true]').waitFor({timeout:15000});
+  await page.locator('.codec-badge[data-supported=true]').waitFor({state:'attached',timeout:15000});
   const first=await page.locator('canvas[aria-label="Canvas video preview"]').screenshot();
   assert.ok(first.byteLength>1024,'native canvas preview must paint visible content');
   await page.getByRole('button',{name:/Export MP4/}).click();
   const readyLink=page.getByRole('link',{name:/Download MP4 again/});
   await Promise.race([
-    readyLink.waitFor({timeout:90000}),
+    readyLink.waitFor({timeout:240000}),
     (async()=>{
-      const expires=Date.now()+90000;
+      const expires=Date.now()+240000;
       while(Date.now()<expires){
         const status=(await page.locator('.video-status').textContent())||'';
         if(/(?:has no|failed|invalid|missing|incomplete|mismatch|requires|cannot|unsupported|compatib|metadata|sample count)/i.test(status) &&
@@ -81,7 +81,7 @@ try{
   assert.equal(firstDecoded.magic,'ftyp','output must be a genuine MP4 container');
   assert.ok(firstDecoded.size>1024,'output must not be empty');
   assert.equal(firstDecoded.width,640);assert.equal(firstDecoded.height,360);
-  assert.ok(firstDecoded.duration>.85&&firstDecoded.duration<1.16,'encoded length ≈1 second: '+firstDecoded.duration);
+  assert.ok(firstDecoded.duration>7.93&&firstDecoded.duration<8.07,'encoded length must be 8 seconds: '+firstDecoded.duration);
   assert.ok(firstDecoded.seeked>.4,'MP4 must support seeking');
   console.log('PASS: real silent MP4 encode + decode + metadata + seek',JSON.stringify(firstDecoded));
   await mkdir('artifacts',{recursive:true});
@@ -90,7 +90,10 @@ try{
   await readyLink.click();
   const item=await event, file=await readFile(await item.path());
   assert.equal(file.subarray(4,8).toString('ascii'),'ftyp');
-  await item.saveAs(join('artifacts','nexora-step2-real-640x360.mp4'));
+  const eightSecondFile=join('artifacts','nexora-step2-real-8s-640x360.mp4');
+  await item.saveAs(eightSecondFile);
+  const probed=JSON.parse(execFileSync('ffprobe',['-v','error','-count_frames','-show_entries','format=duration:stream=nb_read_frames','-of','json',eightSecondFile],{encoding:'utf8'}));
+  assert.equal(+probed.streams[0].nb_read_frames,240);assert.ok(Math.abs(+probed.format.duration-8)<.07);
   console.log('SAMPLE: real MP4 saved to GitHub Actions artifacts');
   console.log('PASS: manual MP4 download has real ftyp header',item.suggestedFilename());
   for(const width of [360,390,412]){
@@ -102,9 +105,10 @@ try{
   console.log('PASS: video controls and canvas at 360 / 390 / 412');
 
   await page.setViewportSize({width:1440,height:900});
+  await page.selectOption('#video-duration','1');
   for(const [key,expectedWidth,expectedHeight] of [['square',720,720],['portrait',720,1280]]){
     await page.selectOption('#video-size',key);
-    await page.locator('.codec-badge[data-supported=true]').waitFor({timeout:15000});
+    await page.locator('.codec-badge[data-supported=true]').waitFor({state:'attached',timeout:15000});
     await page.getByRole('button',{name:/Export MP4/}).click();
     const output=page.getByRole('link',{name:/Download MP4 again/});
     await output.waitFor({timeout:90000});
@@ -128,10 +132,10 @@ try{
   await page.selectOption('#video-size','portrait');
   await page.selectOption('#video-fps','30');
   await page.selectOption('#video-duration','12');
-  await page.locator('.codec-badge[data-supported=true]').waitFor({timeout:15000});
+  await page.locator('.codec-badge[data-supported=true]').waitFor({state:'attached',timeout:15000});
   await page.getByRole('button',{name:/Export MP4/}).click();
-  await page.getByRole('button',{name:'Cancel export'}).click();
-  await page.getByRole('status').filter({hasText:/cancelled/i}).waitFor({timeout:25000});
+  await page.getByRole('button',{name:/Cancel export/}).click();
+  await page.getByRole('status').filter({hasText:/dibatalkan/i}).waitFor({timeout:25000});
   assert.equal(await page.getByRole('link',{name:/Download MP4 again/}).count(),0,'cancelled render must not provide file');
   console.log('PASS: long export cancellation prevents partial download');
 
@@ -141,7 +145,7 @@ try{
   const unsupportedPage=await unsupported.newPage();
   await unsupportedPage.goto(url,{waitUntil:'domcontentloaded'});
   await unsupportedPage.getByRole('button',{name:'Video Lab',exact:true}).click();
-  await unsupportedPage.locator('.codec-badge[data-supported=false]').waitFor({timeout:10000});
+  await unsupportedPage.locator('.codec-badge[data-supported=false]').waitFor({state:'attached',timeout:10000});
   assert.equal(await unsupportedPage.getByRole('button',{name:/Export MP4/}).isDisabled(),true);
   await unsupported.close();
   console.log('PASS: unsupported encoder disables export with explicit message');

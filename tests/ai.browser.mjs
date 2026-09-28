@@ -2,7 +2,7 @@ import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,readFile} from 'node:fs/promises';
 import {join} from 'node:path';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 const host='http://127.0.0.1:4182';
 const server=spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4182','--strictPort'],{stdio:['ignore','pipe','pipe']});
 let log='';
@@ -48,12 +48,12 @@ try{
  console.log('PASS: offline local draft, manual edits, JSON export, strict scene schema');
 
  await page.selectOption('#ai-size','compact');
- await page.selectOption('#ai-fps','12');
- await page.selectOption('#ai-duration','1');
- await page.locator('.ai-codec').filter({hasText:'H.264 READY'}).waitFor({timeout:15000});
+ await page.selectOption('#ai-fps','30');
+ await page.selectOption('#ai-duration','8');
+ await page.locator('.ai-codec').filter({hasText:'H.264 READY'}).waitFor({state:'attached',timeout:15000});
  await page.getByRole('button',{name:/Render MP4/}).click();
  const mp4=page.getByRole('link',{name:/Download rendered MP4 again/});
- await mp4.waitFor({timeout:90000});
+ await mp4.waitFor({timeout:240000});
  const info=await page.evaluate(async href=>{
    const blob=await(await fetch(href)).blob();
    const u=new Uint8Array(await blob.slice(0,12).arrayBuffer());
@@ -69,11 +69,14 @@ try{
    return result;
  },await mp4.getAttribute('href'));
  assert.equal(info.magic,'ftyp');assert.equal(info.width,640);assert.equal(info.height,360);
- assert.ok(info.duration>.85&&info.duration<1.16);
+ assert.ok(info.duration>7.93&&info.duration<8.07);
  await mkdir('artifacts',{recursive:true});
  const dl=page.waitForEvent('download');
  await mp4.click();
- await(await dl).saveAs(join('artifacts','step4-local-scene-real.mp4'));
+ const aiFile=join('artifacts','step4-local-scene-real-8s.mp4');
+ await(await dl).saveAs(aiFile);
+ const probed=JSON.parse(execFileSync('ffprobe',['-v','error','-count_frames','-show_entries','format=duration:stream=nb_read_frames','-of','json',aiFile],{encoding:'utf8'}));
+ assert.equal(+probed.streams[0].nb_read_frames,240);assert.ok(Math.abs(+probed.format.duration-8)<.07);
  await page.screenshot({path:join('artifacts','step4-ai-workspace-desktop.png'),fullPage:true,animations:'disabled'});
  console.log('PASS: real local storyboard MP4 encoded + decoded',JSON.stringify(info));
 
