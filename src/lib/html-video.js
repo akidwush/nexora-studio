@@ -19,7 +19,7 @@ export async function encodeHtmlVideo(options,{
     if(typeof VideoEncoder==='undefined')
       throw new Error('WebCodecs H.264 is unavailable. Use current Chrome or Edge.');
     if(plan.hdLong&&!fileHandle)
-      throw new Error('10-second 720p requires local streaming. Select Streaming · save to device.');
+      throw new Error('Ekspor HD berdurasi panjang memerlukan streaming lokal. Pilih Streaming lokal atau gunakan 640×360.');
     const bitrate=htmlVideoBitrate(plan);
     const support=await VideoEncoder.isConfigSupported({
       codec:MOBILE_AVC_CODEC,width:plan.width,height:plan.height,

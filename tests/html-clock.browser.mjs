@@ -77,6 +77,7 @@ try{
     await page.getByRole('button',{name:tab,exact:true}).click();
     await page.getByRole('textbox',{name:tab+' code editor'}).fill(content);
   }
+  await page.locator('details.frame-clock-advanced').evaluate(element=>{element.open=true;});
   await page.getByRole('button',{name:'Enable deterministic timeline'}).click();
   await page.locator('iframe[data-clock=controlled]').waitFor();
   await page.locator('.frame-clock-status[data-state=ready]').waitFor({timeout:12000});

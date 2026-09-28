@@ -29,7 +29,9 @@ jobs:
       - name: Record pinned upstream npm security advisories (public imports remain disabled)
         run: node scripts/report-studio-upstream-dependencies.mjs
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium chrome
+        run: |
+          npx playwright install --with-deps chromium chrome
+          command -v ffprobe >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
       - name: Security regression - original Studio Pro HTML code on opaque origin
         run: node tests/studio-pro-isolation.browser.mjs
       - name: Security regression - malicious project and legacy monolithic renderer routes

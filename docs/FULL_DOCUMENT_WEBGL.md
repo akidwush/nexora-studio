@@ -74,10 +74,11 @@ still require inspection if it contains another library version.
   module graph used in the sample. This does **not** authorize general
   websites, npm installations, arbitrary importmaps, network fetch, remote
   CSS/images/fonts or iframe-based documents.
-- Exactly supported H.264 outputs: 24/30 FPS up to 720p for 1–3 seconds;
-  60 FPS only at 640×360. Full-document mode adds 5/8/10-second durations
-  **only** at 640×360. Users can concatenate verified segments later; this
-  change does not promise unrestricted-duration exports.
+- The simple UI exports exactly **8 seconds at 30 FPS**. Mobile-safe output is
+  640×360. Eligible desktop-class browsers may explicitly stream 1280×720 at
+  24/30 FPS; an unsupported choice fails closed and offers 640×360 without
+  silently changing resolution, FPS or duration. Legacy 1–5/10-second plans
+  remain available to automated regression tests only.
 - The uploaded example uses **14 L-system expansion iterations**,
   programmatically merging a large number of new CylinderGeometries and
   rerunning the entire tree at every canvas click. Browser GPU memory and
@@ -96,7 +97,8 @@ still require inspection if it contains another library version.
   origin with no privileged parent bridge; never pass NEXORA auth to it.
   The CDN can be unavailable. Review actual hosting CSP/egress before release.
 - Silent H.264 MP4 does not preserve alpha, so choose an opaque background.
-  `Match export preview` uses the same renderer and must be inspected.
+  the matching preview uses the same renderer; decoded-video fidelity checks
+  remain mandatory and run automatically during export.
 
 ## Browser regression
 

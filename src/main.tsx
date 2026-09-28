@@ -55,7 +55,7 @@ function App() {
   const [previewIssue,setPreviewIssue]=useState('');
   const [clockEnabled,setClockEnabled]=useState(false);
   const [clockFps,setClockFps]=useState(30);
-  const [clockDuration,setClockDuration]=useState(4);
+  const [clockDuration,setClockDuration]=useState(8);
   const [clockFrame,setClockFrame]=useState(0);
   const [clockStatus,setClockStatus]=useState<TimelineUpdate|null>(null);
   const [svg, setSvg] = useState('');
@@ -240,7 +240,7 @@ function App() {
               <p className="panel-note">Four-tab code runs without remote resources. Pasting a complete &lt;html&gt;...&lt;/html&gt; file in the HTML tab automatically switches to the one-file renderer.</p>
             </>:
             <>
-              <p className="full-doc-instructions" role="note">Paste the complete HTML/CSS/JavaScript document below or import your .html file. Then click Run preview, prepare a matching export frame, and render MP4.</p>
+              <p className="full-doc-instructions" role="note">Tempel kode lengkap atau unggah file .html, tekan Run preview, lalu pilih Buat Video. Pemeriksaan frame berjalan otomatis.</p>
               <div className="full-doc-upload">
                 <label>↑ Import complete .html file
                   <input type="file" accept=".html,.htm,text/html" aria-label="Import complete HTML file"
@@ -263,6 +263,8 @@ function App() {
             timeline={{enabled:clockEnabled,frame:clockFrame,fps:clockFps,onUpdate:setClockStatus}}/>
           <HtmlVideoExport source={sourceMode==='document'?{document:documentSource}:{html,css,svg:svgCode,js}}
             sourceReady={sourceMode!=='document'||(previewActive&&documentRunSource===documentSource)}/>
+          <details className="advanced-settings frame-clock-advanced">
+            <summary>Pengaturan Lanjutan &amp; Timeline</summary>
           <div className="frame-clock-controls">
             <div className="frame-clock-header">
               <strong>DETERMINISTIC TIMELINE</strong>
@@ -312,7 +314,7 @@ function App() {
               </p>
               <p className="frame-clock-note">Exact frame replay for supported CSS, JavaScript and WebGL canvas; heavy shaders may render slowly. Rewind reloads the isolated frame.</p>
             </>}
-          </div>
+          </div></details>
           {previewIssue&&<p className="sandbox-issue" role="alert">{previewIssue}</p>}
           <p className="panel-note">Sandboxed preview and locally encoded MP4 are separate. Exported standalone HTML remains untrusted code.</p>
         </section>

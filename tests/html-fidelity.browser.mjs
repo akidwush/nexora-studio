@@ -70,9 +70,10 @@ try{
     await page.getByRole('button',{name:tab,exact:true}).click();
     await page.getByRole('textbox',{name:tab+' code editor'}).fill(value);
   }
+  await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps','30');
-  await page.selectOption('#html-video-duration','1');
+  await page.selectOption('#html-video-duration','1',{force:true});
   await page.locator('#html-video-matte').fill('#173651');
   await page.selectOption('#html-video-sample','middle'); // frame 15 = 500ms
   await page.getByRole('button',{name:/Match export preview/}).click();
@@ -142,7 +143,7 @@ try{
   await item.saveAs(join('artifacts','html-fidelity-verified-30fps.mp4'));
   await page.locator('[data-testid="html-fidelity-score"]').waitFor({timeout:30000});
   const quality=await page.locator('[data-testid="html-fidelity-score"]').textContent();
-  assert.match(quality,/mean RGB error/);
+  assert.match(quality,/mean RGB error|galat RGB terburuk/i);
   console.log('FIDELITY METRICS:',quality.trim().replace(/\s+/g,' '));
   const decoded=await page.locator('video[aria-label="Rendered HTML video playback"]').evaluate(async video=>{
     await new Promise((resolve,reject)=>{

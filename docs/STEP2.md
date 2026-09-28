@@ -2,7 +2,7 @@
 
 A new Canvas Motion Video tool renders deterministic built-in motion presets. Freeform untrusted HTML/JavaScript from HTML Motion Lab is **not** fed into this encoder.
 
-Features: three self-contained canvas animations; 16:9 HD, 9:16 HD, 1:1 HD, and compact 16:9; 12/24/30 FPS; durations 1–12 seconds; frame-indexed timeline scrubbing; H.264 MP4 via MediaBunny CanvasSource/WebCodecs; bounded frame count; live progress; cancellation.
+Features: three self-contained canvas animations; 16:9 HD, 9:16 HD, 1:1 HD, and compact 16:9; simple 8-second/30 FPS export; advanced 12/24/30 FPS control; frame-indexed timeline scrubbing; H.264 MP4 via MediaBunny CanvasSource/WebCodecs; bounded frame count; live progress; cancellation. Legacy duration values remain accepted by regression tests but are hidden from the normal UI.
 
 Each frame depends only on the requested time and preset. No arbitrary JS execution or provider keys. All frames render locally, without uploads. Browser lacking H.264 support receives a useful error.
 

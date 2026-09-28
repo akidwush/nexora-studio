@@ -1,4 +1,4 @@
-// End-to-end 10-second reference workload: Canvas2D black-hole art + CSS
+// End-to-end universal 8-second reference workload: Canvas2D black-hole art + CSS
 // animation + inline JavaScript, submitted as ONE original HTML document.
 // Uses built production UI and native Chrome/WebCodecs/OPFS, not a fake codec.
 import {chromium} from 'playwright';
@@ -8,8 +8,8 @@ import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {inspectAndroidMp4} from '../src/lib/android-mp4.js';
 
 const host='http://127.0.0.1:4199';
-const output='artifacts/studio-black-hole-10-seconds.mp4';
-const source=await readFile(new URL('../fixtures/black-hole-10s.html',import.meta.url),'utf8');
+const output='artifacts/studio-black-hole-8-seconds.mp4';
+const source=await readFile(new URL('../fixtures/black-hole-8s.html',import.meta.url),'utf8');
 assert.match(source,/<style>/);
 assert.match(source,/<script>/);
 assert.match(source,/getContext\(['"]2d/);
@@ -29,7 +29,7 @@ async function awaitMatchingFrame(page,timeoutMs){
     const detail=page.locator('.html-render-failure-detail');
     if(await detail.count())
       throw Error('Matching preview failed: '+status+' / '+(await detail.allTextContents()).join(' | '));
-    if(/frame 0 ready/i.test(status))return;
+    if(/Pratinjau siap/i.test(status))return;
     if(/script failed|preview failed|WebGL context|shader|unsupported module|could not initialize/i.test(status))
       throw Error('Matching preview failed early: '+status);
     await wait(300);
@@ -76,11 +76,12 @@ try{
   await page.getByRole('button',{name:'Full HTML file · WebGL'}).click();
   await page.getByRole('textbox',{name:'Full HTML document code editor'}).fill(source);
   await page.getByRole('button',{name:/Run preview/}).click();
+  await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps','30');
-  await page.selectOption('#html-video-duration','10');
+  await page.selectOption('#html-video-duration','8',{force:true});
   await page.selectOption('#html-video-storage','stream');
-  await page.getByRole('button',{name:/Match export preview/}).click();
+  await page.getByRole('button',{name:/Pratinjau/}).click();
   await awaitMatchingFrame(page,100000);
   const reference=page.getByAltText('Exact export-matching frame');
   await reference.waitFor({timeout:30000});
@@ -100,8 +101,8 @@ try{
       JSON.stringify(previewProof));
   // Replaying frame zero in a fresh sandbox must be pixel-repeatable before
   // we ask the user to trust the same independent preview/export contract.
-  await page.getByRole('button',{name:/Match export preview/}).click();
-  await page.locator('.html-video-message').filter({hasText:/Replaying/i})
+  await page.getByRole('button',{name:/Pratinjau/}).click();
+  await page.locator('.html-video-message').filter({hasText:/Mempersiapkan|timeline/i})
     .waitFor({timeout:10000});
   await awaitMatchingFrame(page,100000);
   await page.waitForFunction(old=>{
@@ -128,13 +129,13 @@ try{
   console.log('INDEPENDENT BLACK-HOLE FRAME 0 PREVIEW REPEATABILITY:',JSON.stringify(repeated));
   assert.ok(repeated.meanRGB<2&&repeated.severeFraction<.016,
     'Two independent captures of shader frame 0 must agree before export: '+JSON.stringify(repeated));
-  assert.equal(await page.getByRole('button',{name:/Render MP4/}).isEnabled(),true);
+  assert.equal(await page.getByRole('button',{name:/Buat Video/}).isEnabled(),true);
   assert.equal(await page.evaluate(()=>window.__cinematicWrites),0,
     'No destination bytes may be written before fidelity checks complete.');
-  await page.getByRole('button',{name:/Render MP4/}).click();
+  await page.getByRole('button',{name:/Buat Video/}).click();
   let finished=false,last='';
   const complete=page.locator('.html-video-message')
-    .filter({hasText:/Streaming save complete/i}).waitFor({timeout:480000});
+    .filter({hasText:/Video berhasil dibuat/i}).waitFor({timeout:480000});
   complete.catch(()=>{});
   await Promise.race([
     complete,
@@ -145,21 +146,21 @@ try{
         const failure=page.locator('.html-render-failure-detail');
         if(await failure.count()){
           const detail=await failure.allTextContents();
-          throw Error('10s black-hole export failed: '+status+' '+detail.join(' ')+
+          throw Error('8s black-hole export failed: '+status+' '+detail.join(' ')+
             '; script errors: '+errors.slice(-5).join(' | '));
         }
-        if(status.includes('Streaming save complete'))return;
+        if(status.includes('Video berhasil dibuat'))return;
         await wait(300);
       }
-      if(!finished)throw Error('10s black-hole render timed out: '+last+
+      if(!finished)throw Error('8s black-hole render timed out: '+last+
         '; script errors: '+errors.slice(-5).join(' | '));
     })()
   ]);
   finished=true;
   const quality=await page.getByTestId('html-fidelity-score').textContent();
-  for(const index of [0,50,100,150,200,250,299])
+  for(const index of [0,60,120,180,239])
     assert.match(quality,new RegExp('Frame '+index+': RGB'),
-      '10-second output must verify all seven distributed timeline checkpoints');
+      '8-second output must verify all five distributed timeline checkpoints');
   assert.match(await page.locator('.html-render-compatibility').textContent(),
     /avc1\.42.*Fast Start/i);
   assert.ok((await page.evaluate(()=>window.__cinematicWrites))>0,
@@ -178,7 +179,7 @@ try{
   await mkdir('artifacts',{recursive:true});
   await writeFile(output,saved);
   const header=await inspectAndroidMp4(new Blob([saved],{type:'video/mp4'}),
-    {expectedFrames:300});
+    {expectedFrames:240});
   assert.equal(header.fastStart,true);
   assert.equal(header.profile,66);
   assert.ok(header.level<=31);
@@ -191,11 +192,11 @@ try{
   assert.ok(video,'Independent FFprobe must find the actual H.264 stream.');
   assert.equal(video.width,640);assert.equal(video.height,360);
   assert.equal(video.pix_fmt,'yuv420p');
-  assert.equal(+video.nb_read_frames,300);
-  assert.ok(Math.abs(+info.format.duration-10)<.07,'MP4 must last ten seconds.');
+  assert.equal(+video.nb_read_frames,240);
+  assert.ok(Math.abs(+info.format.duration-8)<.07,'MP4 must last eight seconds.');
   const rendered=execFileSync('ffmpeg',[
     '-v','error','-i',output,'-vf',
-    'select=eq(n\\,0)+eq(n\\,150)+eq(n\\,299)',
+    'select=eq(n\\,0)+eq(n\\,120)+eq(n\\,239)',
     '-vsync','0','-pix_fmt','rgb24','-f','rawvideo','-'
   ],{maxBuffer:3_000_000,timeout:120000});
   const size=640*360*3;
@@ -211,26 +212,38 @@ try{
   assert.ok(Math.max(...colors.map(rgb=>rgb[1]))-
     Math.min(...colors.map(rgb=>rgb[1]))>20,
     'The black-hole canvas itself must visibly change between decoded frames: '+JSON.stringify(colors));
-  console.log('PASS: real 10s black-hole canvas + CSS/JS -> 300-frame 640x360 H.264; seven real decoded-frame fidelity checks; independent FFprobe and animated-ring FFmpeg evidence. '+JSON.stringify({
+  console.log('PASS: real 8s black-hole canvas + CSS/JS -> 240-frame 640x360 H.264; five real decoded-frame fidelity checks; independent FFprobe and animated-ring FFmpeg evidence. '+JSON.stringify({
     bytes:saved.length,codec:header.codec,level:header.level,
     duration:info.format.duration,frames:video.nb_read_frames,ringSamples:colors
   }));
-  await page.screenshot({path:'artifacts/black-hole-10s-studio-ui.png',fullPage:true});
+  await page.screenshot({path:'artifacts/black-hole-8s-studio-ui.png',fullPage:true});
 
   // Opt-in HD must be offered only when a browser advertises desktop-class
   // memory and real local OPFS streaming; do not silently promote mobile.
   await page.selectOption('#html-video-size','landscape');
-  assert.equal(await page.locator('#html-video-duration').inputValue(),'10');
-  await page.getByRole('button',{name:/Match export preview/}).click();
+  assert.equal(await page.locator('#html-video-duration').inputValue(),'8');
+  await page.getByRole('button',{name:/Pratinjau/}).click();
   await awaitMatchingFrame(page,150000);
   const hdDimensions=await page.getByAltText('Exact export-matching frame')
     .evaluate(img=>({width:img.naturalWidth,height:img.naturalHeight}));
   assert.deepEqual(hdDimensions,{width:1280,height:720},
     'Desktop opt-in 720p must capture native resolution, not upscale 360p.');
   await page.selectOption('#html-video-storage','download');
-  assert.equal(await page.locator('#html-video-duration').inputValue(),'3',
-    'Turning off local stream must immediately disable the risky 10s HD mode.');
-  console.log('PASS: opt-in desktop 10s HD preview is native 1280x720 and download fallback remains capped.');
+  assert.equal(await page.locator('#html-video-duration').inputValue(),'8',
+    'Incompatible storage must never silently shorten the video.');
+  assert.match(await page.locator('.compatibility-choice').textContent(),/640×360/);
+  assert.equal(await page.getByRole('button',{name:/Buat Video/}).isDisabled(),true);
+  console.log('PASS: desktop 8s HD preview is native 1280x720; incompatible download fails closed without changing duration.');
+
+  for(const width of [360,390,412]){
+    await page.setViewportSize({width,height:820});
+    await page.goto(host+'/?tool=motion',{waitUntil:'domcontentloaded'});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),
+      'No horizontal overflow at '+width+'px.');
+    const buttons=await page.locator('.html-video-actions button').all();
+    for(const button of buttons){const box=await button.boundingBox();if(box)assert.ok(box.height>=43,'Touch target too short at '+width+'px');}
+  }
+  console.log('PASS: simple exporter has no horizontal overflow at Android 360/390/412 widths.');
 }finally{
   if(browser)await browser.close();
   server.kill('SIGTERM');

@@ -1,4 +1,4 @@
-name: Ten-second cinematic renderer
+name: Universal eight-second renderer
 on:
   pull_request:
     branches: [main]
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 jobs:
-  cinematic-10s:
+  universal-8s:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -16,7 +16,7 @@ jobs:
           node-version: '22'
       - name: Locked dependencies
         run: npm ci --no-fund
-      - name: Unit validation for 10s bitrate, streaming and frame coverage
+      - name: Unit validation for 8s policy, bitrate, streaming and frame coverage
         run: node --test tests/html-video.test.mjs tests/android-mp4.test.mjs
       - name: Typecheck and production build
         run: npm run build
@@ -24,15 +24,15 @@ jobs:
         run: |
           npx playwright install --with-deps chromium chrome
           command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
-      - name: Export, decode and visually verify complete 10s black-hole HTML
-        run: node tests/cinematic-black-hole.browser.mjs
+      - name: Export, decode and visually verify complete 8s black-hole HTML
+        run: node tests/universal-8s.browser.mjs
       - name: Publish independent encoded movie and screenshots for manual review
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: studio-cinematic-black-hole-10s-proof
+          name: studio-universal-black-hole-8s-proof
           path: |
-            artifacts/studio-black-hole-10-seconds.mp4
-            artifacts/black-hole-10s-studio-ui.png
+            artifacts/studio-black-hole-8-seconds.mp4
+            artifacts/black-hole-8s-studio-ui.png
           retention-days: 7
           if-no-files-found: ignore

@@ -6,6 +6,10 @@ test('video plan calculates an exact frame count',()=>{
  const p=validateVideoOptions({preset:'orbit',size:'compact',fps:24,duration:3});
  assert.deepEqual({frames:p.frames,width:p.width,height:p.height},{frames:72,width:640,height:360});
 });
+test('universal Canvas export is exactly 8 seconds at 30 FPS',()=>{
+ const p=validateVideoOptions({preset:'orbit',size:'compact',fps:30,duration:8});
+ assert.equal(p.frames,240);assert.equal(p.duration,8);assert.equal(p.fps,30);
+});
 test('reject out-of-bounds render requests',()=>{
  for(const o of [{preset:'orbit',size:'compact',fps:24,duration:60},{preset:'orbit',size:'compact',fps:120,duration:3},{preset:'orbit',size:'wat',fps:24,duration:3}])assert.throws(()=>validateVideoOptions(o));
 });

@@ -21,15 +21,15 @@ jobs:
       - name: Build first-party isolated Studio shell
         run: npm run build
       - name: Install Chromium for actual H264 encoder proof
-        run: npx playwright install --with-deps chromium chrome
+        run: |
+          npx playwright install --with-deps chromium chrome
+          command -v ffprobe >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
       - name: Native Canvas MP4 Android compatibility
         run: node tests/video.browser.mjs
       - name: Five-second full HTML OPFS stream + WebGL codec proof
         run: node tests/full-document.browser.mjs
       - name: Independently verify streamed 5-second MP4 with FFprobe
-        run: |
-          command -v ffprobe >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
-          node scripts/verify-android-mp4.mjs artifacts/android-webgl-five-seconds-stream.mp4
+        run: node scripts/verify-android-mp4.mjs artifacts/android-webgl-five-seconds-stream.mp4
       - name: Upload actual MP4 and codec report
         if: always()
         uses: actions/upload-artifact@v4

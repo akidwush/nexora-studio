@@ -1,4 +1,5 @@
 import {MAX_TIMELINE_FRAMES,frameTimestamp} from './timeline-runtime.js';
+import {UNIVERSAL_EXPORT_DURATION} from './export-policy.js';
 export const HTML_VIDEO_SIZES=Object.freeze({
   compact:{width:640,height:360,label:'16:9 · 640×360 (fast)'},
   landscape:{width:1280,height:720,label:'16:9 · 1280×720 (HD)'},
@@ -17,14 +18,15 @@ export function validateHtmlVideoOptions(options){
   if(!Object.hasOwn(HTML_VIDEO_SIZES,size))throw new Error('Unsupported HTML output size.');
   if(![24,30,60].includes(fps))throw new Error('HTML capture supports 24, 30 or 60 FPS.');
   const fullDocument=typeof options?.document==='string';
-  if(!(fullDocument?[1,2,3,5,8,10]:[1,2,3]).includes(duration))
-    throw new Error(fullDocument?'Complete HTML exports allow 1–10 seconds (longer exports at 640×360).':'HTML export supports 1–3 seconds per render.');
-  // Keep existing mobile-safe long exports unchanged. An explicit 720p/10s
-  // stream is permitted only for desktop-class users with local OPFS output.
-  const hdLong=fullDocument&&duration===10&&size==='landscape'&&
+  const supportedDurations=fullDocument?[1,2,3,5,8,10]:[1,2,3,UNIVERSAL_EXPORT_DURATION];
+  if(!supportedDurations.includes(duration))
+    throw new Error(fullDocument?'Complete HTML exports allow the legacy test durations and the standard 8-second export.':'HTML export supports the standard 8-second export and legacy short regression clips.');
+  // Keep historical short/10s plans available for regression tests. The
+  // simple product flow uses 8s; long HD remains an explicit local stream.
+  const hdLong=duration>=UNIVERSAL_EXPORT_DURATION&&size==='landscape'&&
     (fps===24||fps===30)&&options?.stream===true;
-  if(fullDocument&&duration>3&&size!=='compact'&&!hdLong)
-    throw new Error('Long WebGL/HTML exports require 640×360, except 10-second 720p at 24/30 FPS with explicit local streaming.');
+  if(duration>3&&size!=='compact'&&!hdLong)
+    throw new Error('Ekspor 8 detik ukuran HD memerlukan streaming lokal. Pilih 640×360 untuk konfigurasi Android yang aman.');
   if(fps===60&&size!=='compact')
     throw new Error('60 FPS HTML export currently supports 640×360 only to protect mobile memory.');
   const {width,height}=HTML_VIDEO_SIZES[size];

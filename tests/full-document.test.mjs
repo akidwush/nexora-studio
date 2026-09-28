@@ -25,6 +25,7 @@ test('full document input must be complete and bounded without privileged frames
 });
 
 test('long full-document export only at limited mobile-safe resolution',()=>{
+ assert.equal(validateHtmlVideoOptions({document:sample,size:'compact',fps:30,duration:8}).frames,240);
  assert.equal(validateHtmlVideoOptions({document:sample,size:'compact',fps:30,duration:10}).frames,300);
  assert.throws(()=>validateHtmlVideoOptions({document:sample,size:'landscape',fps:30,duration:5}));
  assert.throws(()=>validateHtmlVideoOptions({size:'compact',fps:30,duration:5}));

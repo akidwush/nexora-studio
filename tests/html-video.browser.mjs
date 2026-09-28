@@ -3,7 +3,7 @@
 // Do not confuse fixed MP4 frame cadence with measured real-time GPU throughput.
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 import {mkdir,readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 
@@ -41,10 +41,11 @@ function samplesInMp4(buffer){
   const stsz=box(buffer,stbl.begin,stbl.end,'stsz');
   return buffer.readUInt32BE(stsz.begin+8); // version(4), sample_size(4), sample_count(4)
 }
-async function exportMp4(page,fps){
+async function exportMp4(page,fps,duration=1){
+  await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps',String(fps));
-  await page.selectOption('#html-video-duration','1');
+  await page.selectOption('#html-video-duration',String(duration),{force:true});
   // GitHub's shared Chrome runner may need >50 seconds for a legitimate
   // 60 FPS export with independently checked decoded frames. Guard actual
   // stalls rather than treating slow, observable frame progress as failure.
@@ -86,7 +87,7 @@ async function exportMp4(page,fps){
   const downloaded=await readFile(await item.path());
   assert.equal(downloaded.toString('latin1',4,8),'ftyp','real ISO BMFF MP4 header');
   const count=samplesInMp4(downloaded);
-  assert.equal(count,fps,'No missing or duplicated encoded samples at '+fps+' FPS');
+  assert.equal(count,fps*duration,'No missing or duplicated encoded samples at '+fps+' FPS');
   const playback=await page.locator('video[aria-label="Rendered HTML video playback"]').evaluate(async element=>{
     const video=element;
     await new Promise((resolve,reject)=>{
@@ -98,7 +99,7 @@ async function exportMp4(page,fps){
     });
     return {duration:video.duration,width:video.videoWidth,height:video.videoHeight};
   });
-  assert.ok(playback.duration>.97&&playback.duration<1.04,'one second duration '+playback.duration);
+  assert.ok(Math.abs(playback.duration-duration)<.07,'encoded duration '+playback.duration+' expected '+duration);
   assert.equal(playback.width,640);assert.equal(playback.height,360);
   console.log('PASS: '+fps+'FPS genuine HTML->MP4, exactly '+count+' encoded samples, duration '+playback.duration);
   return {item,downloaded};
@@ -125,8 +126,11 @@ try{
   }
   await page.locator('#html-video-size').waitFor();
   await mkdir('artifacts',{recursive:true});
-  const thirty=await exportMp4(page,30);
-  await thirty.item.saveAs(join('artifacts','html-motion-real-30fps.mp4'));
+  const thirty=await exportMp4(page,30,8);
+  const fourTabFile=join('artifacts','html-motion-real-8s-30fps.mp4');
+  await thirty.item.saveAs(fourTabFile);
+  const probed=JSON.parse(execFileSync('ffprobe',['-v','error','-count_frames','-show_entries','format=duration:stream=nb_read_frames','-of','json',fourTabFile],{encoding:'utf8'}));
+  assert.equal(+probed.streams[0].nb_read_frames,240);assert.ok(Math.abs(+probed.format.duration-8)<.07);
   const sample=await page.locator('video[aria-label="Rendered HTML video playback"]').evaluate(async video=>{
     const samples=[];
     const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;
@@ -168,10 +172,10 @@ try{
   await page.setViewportSize({width:1440,height:900});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps','60');
-  await page.selectOption('#html-video-duration','3');
+  await page.selectOption('#html-video-duration','3',{force:true});
   await page.getByRole('button',{name:/Render MP4/}).click();
-  await page.getByRole('button',{name:'Cancel',exact:true}).click();
-  await page.getByRole('status').filter({hasText:/cancelled/i}).waitFor({timeout:25000});
+  await page.getByRole('button',{name:/Cancel/}).click();
+  await page.getByRole('status').filter({hasText:/dibatalkan/i}).waitFor({timeout:25000});
   assert.equal(await page.locator('video[aria-label="Rendered HTML video playback"]').count(),0);
   console.log('PASS: cancellation aborts HTML capture without exposing partial output');
 }finally{
