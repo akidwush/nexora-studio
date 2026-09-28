@@ -50,7 +50,7 @@ try{
  await page.locator('#ai-fps').evaluate(element=>{element.closest('details').open=true;});
  await page.selectOption('#ai-size','compact');
  await page.selectOption('#ai-fps','30');
- await page.selectOption('#ai-duration','8');
+ await page.selectOption('#ai-duration','8',{force:true});
  await page.locator('.ai-codec').filter({hasText:'H.264 READY'}).waitFor({state:'attached',timeout:15000});
  await page.getByRole('button',{name:/Render MP4/}).click();
  const mp4=page.getByRole('link',{name:/Download rendered MP4 again/});

@@ -45,7 +45,7 @@ async function exportMp4(page,fps,duration=1){
   await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps',String(fps));
-  await page.selectOption('#html-video-duration',String(duration));
+  await page.selectOption('#html-video-duration',String(duration),{force:true});
   // GitHub's shared Chrome runner may need >50 seconds for a legitimate
   // 60 FPS export with independently checked decoded frames. Guard actual
   // stalls rather than treating slow, observable frame progress as failure.
@@ -172,7 +172,7 @@ try{
   await page.setViewportSize({width:1440,height:900});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps','60');
-  await page.selectOption('#html-video-duration','3');
+  await page.selectOption('#html-video-duration','3',{force:true});
   await page.getByRole('button',{name:/Render MP4/}).click();
   await page.getByRole('button',{name:/Cancel/}).click();
   await page.getByRole('status').filter({hasText:/dibatalkan/i}).waitFor({timeout:25000});

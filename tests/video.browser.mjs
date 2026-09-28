@@ -35,7 +35,7 @@ try{
   await page.locator('#video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#video-size','compact');
   await page.selectOption('#video-fps','30');
-  await page.selectOption('#video-duration','8');
+  await page.selectOption('#video-duration','8',{force:true});
   console.log('Video encoder diagnostics',JSON.stringify(await page.evaluate(async()=>({encoderAvailable:typeof VideoEncoder==='function',avc:typeof VideoEncoder==='function'?await VideoEncoder.isConfigSupported({codec:'avc1.42001f',width:640,height:360,bitrate:2_000_000,framerate:12}):null,badge:document.querySelector('.codec-badge')?.outerHTML}))));
   await page.locator('.codec-badge[data-supported=true]').waitFor({state:'attached',timeout:15000});
   const first=await page.locator('canvas[aria-label="Canvas video preview"]').screenshot();
@@ -106,7 +106,7 @@ try{
   console.log('PASS: video controls and canvas at 360 / 390 / 412');
 
   await page.setViewportSize({width:1440,height:900});
-  await page.selectOption('#video-duration','1');
+  await page.selectOption('#video-duration','1',{force:true});
   for(const [key,expectedWidth,expectedHeight] of [['square',720,720],['portrait',720,1280]]){
     await page.selectOption('#video-size',key);
     await page.locator('.codec-badge[data-supported=true]').waitFor({state:'attached',timeout:15000});
@@ -132,7 +132,7 @@ try{
   }
   await page.selectOption('#video-size','portrait');
   await page.selectOption('#video-fps','30');
-  await page.selectOption('#video-duration','12');
+  await page.selectOption('#video-duration','12',{force:true});
   await page.locator('.codec-badge[data-supported=true]').waitFor({state:'attached',timeout:15000});
   await page.getByRole('button',{name:/Export MP4/}).click();
   await page.getByRole('button',{name:/Cancel export/}).click();

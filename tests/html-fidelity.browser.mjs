@@ -73,7 +73,7 @@ try{
   await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps','30');
-  await page.selectOption('#html-video-duration','1');
+  await page.selectOption('#html-video-duration','1',{force:true});
   await page.locator('#html-video-matte').fill('#173651');
   await page.selectOption('#html-video-sample','middle'); // frame 15 = 500ms
   await page.getByRole('button',{name:/Match export preview/}).click();

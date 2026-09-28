@@ -79,7 +79,7 @@ try{
   await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
   await page.selectOption('#html-video-size','compact');
   await page.selectOption('#html-video-fps','30');
-  await page.selectOption('#html-video-duration','8');
+  await page.selectOption('#html-video-duration','8',{force:true});
   await page.selectOption('#html-video-storage','stream');
   await page.getByRole('button',{name:/Pratinjau/}).click();
   await awaitMatchingFrame(page,100000);

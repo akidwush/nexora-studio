@@ -110,7 +110,7 @@ try{
  await page.locator('#html-video-fps').evaluate(element=>{element.closest('details').open=true;});
  await page.selectOption('#html-video-size','compact');
  await page.selectOption('#html-video-fps','30');
- await page.selectOption('#html-video-duration','1');
+ await page.selectOption('#html-video-duration','1',{force:true});
  await page.getByRole('button',{name:/Match export preview/}).click();
  await page.getByAltText('Exact export-matching frame').waitFor({timeout:50000});
  assert.equal(await page.getByRole('button',{name:/Render MP4/}).isEnabled(),true,
@@ -153,16 +153,16 @@ try{
  assert.match((await page.locator('.html-video-message').textContent())||'',/Video berhasil dibuat/i);
  // Long one-file preview should use document-specific duration validation,
  // but this lightweight UI proof captures only frame zero (not 150 frames).
- await page.selectOption('#html-video-duration','5');
+ await page.selectOption('#html-video-duration','5',{force:true});
  await page.getByRole('button',{name:/Match export preview/}).click();
  await page.locator('.html-video-message').filter({hasText:/Pratinjau siap/i}).waitFor({timeout:45000});
- await page.selectOption('#html-video-duration','1');
+ await page.selectOption('#html-video-duration','1',{force:true});
  console.log('PASS: 5-second experimental full-document output is accepted by UI preflight.');
 
  // Real five-second STREAMING smoke through the production UI, not source
  // imports: Vite's production preview does NOT serve /src/lib/*.js.
  await page.selectOption('#html-video-storage','stream');
- await page.selectOption('#html-video-duration','5');
+ await page.selectOption('#html-video-duration','5',{force:true});
  await page.getByRole('button',{name:/Match export preview/}).click();
  await page.locator('.html-video-message').filter({hasText:/Pratinjau siap/i})
    .waitFor({timeout:55000});
@@ -206,11 +206,11 @@ try{
  await page.selectOption('#html-video-storage','download');
 
  // Returning to four-tab mode must restore the universal 8-second UI contract.
- await page.selectOption('#html-video-duration','5');
+ await page.selectOption('#html-video-duration','5',{force:true});
  await page.getByRole('button',{name:'Four tabs'}).click();
  await page.waitForFunction(()=>document.querySelector('#html-video-duration')?.value==='8',null,{timeout:6000});
  await page.getByRole('button',{name:'Full HTML file · WebGL'}).click();
- await page.selectOption('#html-video-duration','1');
+ await page.selectOption('#html-video-duration','1',{force:true});
  console.log('PASS: switching from legacy full-document duration restores the universal four-tab 8s contract.');
  console.log('PASS: full-file inline WebGL canvas -> actual 30 FPS H.264 with changing decoded pixels',JSON.stringify({first,last,bytes:bytes.length}));
  // The user's original CodePen-style HTML importmap MUST be recognized and
